@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img">
+  <title>Trip Planner — Variant 3a Neon Pop icon</title>
+  <desc>Hot pink rounded square with a curved route path connecting teal, amber, and purple destination stops.</desc>
+
+  <!-- Rounded square background -->
+  <rect x="10" y="10" width="180" height="180" rx="45" fill="#D4537E"/>
+
+  <!-- Route curve -->
+  <path d="M64 148 Q64 100 100 100 Q136 100 136 70"
+        fill="none" stroke="#FBEAF0" stroke-width="7"
+        stroke-linecap="round"/>
+
+  <!-- Stop A — teal -->
+  <circle cx="64"  cy="148" r="18" fill="#1D9E75"/>
+  <circle cx="64"  cy="148" r="7"  fill="#E1F5EE"/>
+
+  <!-- Stop B — amber -->
+  <circle cx="100" cy="100" r="13" fill="#EF9F27"/>
+  <circle cx="100" cy="100" r="5"  fill="#FAEEDA"/>
+
+  <!-- Stop C — purple -->
+  <circle cx="136" cy="70"  r="20" fill="#534AB7"/>
+  <circle cx="136" cy="70"  r="8"  fill="#EEEDFE"/>
+
+  <!-- Motion dots -->
+  <circle cx="79"  cy="127" r="4" fill="#FBEAF0" opacity="0.75"/>
+  <circle cx="120" cy="84"  r="4" fill="#FBEAF0" opacity="0.75"/>
+
+</svg>

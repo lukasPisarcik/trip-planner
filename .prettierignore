@@ -1,0 +1,18 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Openapi
+*.hbs
+
+# Local JSON store
+.data/
+
+# Standalone HTML doc (hand-formatted)
+architecture.html
