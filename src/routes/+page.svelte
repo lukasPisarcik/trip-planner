@@ -1,10 +1,22 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { listTrips } from '$lib/remote/trips.remote';
 	import type { Trip } from '$lib/trips';
+	import { Trash2 } from '@lucide/svelte';
+	import DeleteTripConfirm from '$lib/components/trip/DeleteTripConfirm.svelte';
 
 	const tripsQuery = listTrips({});
 	const trips = $derived<Trip[]>(tripsQuery.current ?? []);
+
+	const viewerMode = $derived(page.data.viewerMode ?? false);
+
+	let confirmSlug = $state<string | null>(null);
+	const confirmTrip = $derived(trips.find((t) => t.slug === confirmSlug) ?? null);
+
+	async function onDeleted() {
+		await tripsQuery.refresh();
+	}
 
 	function cardStyle(accent: Trip['accent']) {
 		return [
@@ -25,6 +37,16 @@
 	<div class="grid">
 		{#each trips as trip (trip.slug)}
 			<article class="card" style={cardStyle(trip.accent)}>
+				{#if !viewerMode}
+					<button
+						class="del"
+						title="Delete trip"
+						aria-label="Delete trip"
+						onclick={() => (confirmSlug = trip.slug)}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
 				<div class="flags">
 					{#each trip.flags as f, i (i)}
 						<span class="flag">{f}</span>
@@ -58,6 +80,14 @@
 		{/each}
 	</div>
 </div>
+
+{#if !viewerMode}
+	<DeleteTripConfirm
+		trip={confirmTrip}
+		onclose={() => (confirmSlug = null)}
+		ondeleted={onDeleted}
+	/>
+{/if}
 
 <style>
 	.page {
@@ -110,6 +140,40 @@
 	.card:hover {
 		box-shadow: var(--trip-shadow);
 		transform: translateY(-2px);
+	}
+
+	.del {
+		position: absolute;
+		top: 14px;
+		right: 14px;
+		z-index: 2;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		height: 30px;
+		border-radius: 8px;
+		border: 1px solid var(--trip-border);
+		background: var(--white);
+		color: var(--ink3);
+		cursor: pointer;
+		opacity: 0.5;
+		transition:
+			opacity 0.15s,
+			color 0.15s,
+			background 0.15s;
+	}
+	.card:hover .del,
+	.del:focus-visible {
+		opacity: 1;
+	}
+	.del:hover {
+		color: #dc2626;
+		background: var(--cream);
+	}
+	.del:focus-visible {
+		outline: 2px solid var(--card-accent);
+		outline-offset: 2px;
 	}
 
 	.flags {

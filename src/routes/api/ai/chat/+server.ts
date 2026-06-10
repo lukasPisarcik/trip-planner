@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { log, ChatRequestSchema } from '$lib';
 import type { ChatMessage } from '$lib/schemas';
 import * as chatsService from '$lib/server/services/chats.service';
-import { runAgentTurn } from '$lib/server/ai/agent';
+import { isViewerMode } from '$lib/server/env.server';
 
 const encoder = new TextEncoder();
 
@@ -12,6 +12,10 @@ function sseEvent(data: unknown): Uint8Array {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+	// Read-only public deployment: the co-pilot is disabled. Bail before importing
+	// the agent — it spawns the Claude Code CLI, which can't run on serverless.
+	if (isViewerMode()) throw error(404, 'Not found');
+
 	const reqId = crypto.randomUUID();
 	const raw = await request.json();
 	const parsed = ChatRequestSchema.safeParse(raw);
@@ -47,6 +51,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	};
 
 	const newMessages: ChatMessage[] = [userMsg];
+
+	// Lazy-load the agent so the Claude Code SDK (subprocess-based) is never
+	// pulled into the bundle on read-only deployments that bail out above.
+	const { runAgentTurn } = await import('$lib/server/ai/agent');
 
 	const stream = new ReadableStream({
 		async start(controller) {

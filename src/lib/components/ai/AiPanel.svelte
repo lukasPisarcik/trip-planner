@@ -128,6 +128,13 @@
 	}
 </script>
 
+{#if aiPanelStore.open}
+	<!-- Dismissable scrim shown only on narrow screens, where the panel overlays
+	     the content instead of pushing it (see the layout media query). -->
+	<button class="backdrop" aria-label="Close AI panel" onclick={() => aiPanelStore.set(false)}
+	></button>
+{/if}
+
 <aside class="panel" data-open={aiPanelStore.open}>
 	<header>
 		<div class="title">
@@ -173,6 +180,20 @@
 </aside>
 
 <style>
+	.backdrop {
+		position: fixed;
+		inset: 56px 0 0 0;
+		background: hsl(var(--foreground) / 0.3);
+		border: 0;
+		padding: 0;
+		z-index: 25;
+		cursor: pointer;
+	}
+	@media (min-width: 1024px) {
+		.backdrop {
+			display: none;
+		}
+	}
 	.panel {
 		position: fixed;
 		top: 56px;

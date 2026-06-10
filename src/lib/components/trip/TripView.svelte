@@ -8,17 +8,25 @@
 	import FlightsTab from './tabs/FlightsTab.svelte';
 	import BudgetTab from './tabs/BudgetTab.svelte';
 	import TipsTab from './tabs/TipsTab.svelte';
+	import RestaurantsTab from './tabs/RestaurantsTab.svelte';
+	import BrainstormTab from './tabs/BrainstormTab.svelte';
 
-	let { trip }: { trip: Trip } = $props();
+	let { trip, viewerMode = false }: { trip: Trip; viewerMode?: boolean } = $props();
 
-	const tabs = [
+	const allTabs = [
+		{ id: 'brainstorm', label: '💭 Brainstorm' },
 		{ id: 'itinerary', label: '📅 Itinerary' },
 		{ id: 'transport', label: '🚌 Transport' },
 		{ id: 'viral', label: '📸 Viral Spots' },
+		{ id: 'restaurants', label: '🍽️ Food & Drink' },
 		{ id: 'flights', label: '✈️ Flights' },
 		{ id: 'budget', label: '💶 Budget' },
 		{ id: 'tips', label: '💡 Tips' }
 	];
+
+	// Brainstorm is a private planning scratchpad (and the only editable tab) —
+	// hide it on read-only public deployments.
+	const tabs = $derived(viewerMode ? allTabs.filter((t) => t.id !== 'brainstorm') : allTabs);
 
 	let active = $state('itinerary');
 
@@ -45,12 +53,16 @@
 	<TabBar {tabs} {active} onselect={(id) => (active = id)} />
 
 	<div class="content">
-		{#if active === 'itinerary'}
+		{#if active === 'brainstorm'}
+			<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
+		{:else if active === 'itinerary'}
 			<ItineraryTab data={trip.itinerary} />
 		{:else if active === 'transport'}
 			<TransportTab data={trip.transport} />
 		{:else if active === 'viral'}
 			<ViralTab data={trip.viral} />
+		{:else if active === 'restaurants'}
+			<RestaurantsTab data={trip.restaurants} />
 		{:else if active === 'flights'}
 			<FlightsTab data={trip.flights} />
 		{:else if active === 'budget'}

@@ -1,56 +1,21 @@
 <script lang="ts">
 	import type { Trip } from '$lib/trips';
-	import { updateTripFields } from '$lib/remote/trips.remote';
-	import { toast } from '$lib';
-	import EditableText from './EditableText.svelte';
 
 	let { trip }: { trip: Trip } = $props();
-
-	async function save(field: 'title' | 'titleEmphasis' | 'dateRange' | 'tagline', next: string) {
-		try {
-			await updateTripFields({ slug: trip.slug, fields: { [field]: next } });
-		} catch (e) {
-			toast.error(e instanceof Error ? e.message : 'Failed to save');
-		}
-	}
 </script>
 
 <div class="hero">
 	<div class="hero-inner">
 		<div class="hero-eyebrow">{trip.eyebrow}</div>
 		<h1>
-			<EditableText
-				value={trip.title}
-				tag="span"
-				onsave={(v) => save('title', v)}
-				placeholder="Trip title"
-			/>
-			{#if trip.titleEmphasis}
-				<em>
-					<EditableText
-						value={trip.titleEmphasis}
-						tag="span"
-						onsave={(v) => save('titleEmphasis', v)}
-					/>
-				</em>
-			{/if}
+			{trip.title}
+			{#if trip.titleEmphasis}<em>{trip.titleEmphasis}</em>{/if}
 		</h1>
 		<p class="hero-sub">
-			{trip.subtitle} ·
-			<EditableText
-				value={trip.dateRange}
-				tag="span"
-				onsave={(v) => save('dateRange', v)}
-				placeholder="Date range"
-			/>
+			{trip.subtitle} · {trip.dateRange}
 		</p>
 		<p class="hero-tagline">
-			<EditableText
-				value={trip.tagline}
-				tag="span"
-				onsave={(v) => save('tagline', v)}
-				placeholder="One-sentence vibe"
-			/>
+			{trip.tagline}
 		</p>
 		<div class="pill-row">
 			{#each trip.heroPills as p, i (i)}

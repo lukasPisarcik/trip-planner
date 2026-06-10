@@ -91,6 +91,44 @@ export interface ViralSection {
 	spots: ViralSpot[];
 }
 
+export type RestaurantCategory = 'food' | 'coffee' | 'bar';
+
+export type RestaurantSource = 'tiktok' | 'instagram' | 'google' | 'local';
+
+export type PriceLevel = '€' | '€€' | '€€€' | '€€€€';
+
+export interface Restaurant {
+	category: RestaurantCategory;
+	name: string;
+	location: string;
+	description: string;
+	cuisine?: string;
+	priceLevel?: PriceLevel;
+	rating: number;
+	ratingCount: number;
+	tags: string[];
+	source?: RestaurantSource;
+	socialUrl?: string;
+	mapUrl?: string;
+	image?: {
+		url: string;
+		alt: string;
+		credit?: string;
+	};
+}
+
+export interface RestaurantCity {
+	city: string;
+	flag?: string;
+	places: Restaurant[];
+}
+
+export interface RestaurantsTab {
+	callout: string;
+	cities: RestaurantCity[];
+	note: string;
+}
+
 export interface FlightInfoLine {
 	label: string;
 	value: string;
@@ -187,4 +225,7 @@ export interface Trip {
 	flights: FlightsTab;
 	budget: BudgetTab;
 	tips: TipsTab;
+	restaurants?: RestaurantsTab;
+	/** Free-form scratchpad the user dumps ideas/findings into; read by the AI co-pilot. */
+	brainstorm?: string;
 }

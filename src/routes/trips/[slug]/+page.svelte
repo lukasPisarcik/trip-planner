@@ -13,4 +13,4 @@
 	<title>{trip.title}{trip.titleEmphasis ? ` ${trip.titleEmphasis}` : ''} · Trip Planner</title>
 </svelte:head>
 
-<TripView {trip} />
+<TripView {trip} viewerMode={data.viewerMode ?? false} />

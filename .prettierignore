@@ -14,5 +14,8 @@ bun.lockb
 # Local JSON store
 .data/
 
+# Generated trip snapshot for the read-only deployment (written by `bun run snapshot`)
+src/lib/trips/data/snapshot.json
+
 # Standalone HTML doc (hand-formatted)
 architecture.html

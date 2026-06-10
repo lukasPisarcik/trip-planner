@@ -1,6 +1,7 @@
 import { log } from '$lib';
 import { type ChatMessage } from '$lib/schemas';
 import { createFileStore } from '../data/store';
+import { isViewerMode } from '../env.server';
 
 export interface ChatRecord {
 	sessionId: string;
@@ -24,6 +25,10 @@ function latestNonEmptyForTripSlug(
 }
 
 export async function getChatForTrip(tripSlug: string | null): Promise<ChatRecord | null> {
+	// Read-only deployments have no chat history and can't touch the Bun-backed
+	// file-store (unavailable on Vercel's Node runtime). Short-circuit before any
+	// store access so the panel — which isn't rendered there anyway — stays inert.
+	if (isViewerMode()) return null;
 	const records = await chatsStore.read();
 	// Empty records belong to abandoned starts (or to a turn whose first
 	// request failed before any message persisted). Hide them from the

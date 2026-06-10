@@ -10,6 +10,11 @@ const UpdateTripFieldsInput = z.object({
 	fields: TripHeadlinePatchSchema
 });
 
+const SaveBrainstormInput = z.object({
+	slug: z.string().min(1),
+	content: z.string()
+});
+
 export const listTrips = query(EmptyInput, async () => {
 	return tripsService.listTrips();
 });
@@ -29,5 +34,10 @@ export const updateTripFields = command(UpdateTripFieldsInput, async ({ slug, fi
 
 export const deleteTrip = command(SlugInput, async ({ slug }) => {
 	await tripsService.deleteTrip(slug);
+	return { ok: true } as const;
+});
+
+export const saveBrainstorm = command(SaveBrainstormInput, async ({ slug, content }) => {
+	await tripsService.replaceTripTab(slug, 'brainstorm', content);
 	return { ok: true } as const;
 });

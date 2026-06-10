@@ -6,15 +6,27 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { listTrips } from '$lib/remote/trips.remote';
 	import { aiPanelStore } from '$lib/stores';
-	import { House, Plus } from '@lucide/svelte';
+	import { House, Plus, Trash2 } from '@lucide/svelte';
 	import type { Trip } from '$lib/trips';
+	import DeleteTripConfirm from '$lib/components/trip/DeleteTripConfirm.svelte';
 
 	const tripsQuery = listTrips({});
 	const trips = $derived<Trip[]>(tripsQuery.current ?? []);
 
+	const viewerMode = $derived(page.data.viewerMode ?? false);
+
+	let confirmSlug = $state<string | null>(null);
+	const confirmTrip = $derived(trips.find((t) => t.slug === confirmSlug) ?? null);
+
 	async function startNewTrip() {
 		if (page.url.pathname !== '/') await goto(resolve('/'));
 		aiPanelStore.set(true);
+	}
+
+	async function onDeleted(slug: string) {
+		await tripsQuery.refresh();
+		// If we're currently viewing the deleted trip, fall back to the trip list.
+		if (page.url.pathname === resolve('/trips/[slug]', { slug })) await goto(resolve('/'));
 	}
 </script>
 
@@ -59,10 +71,12 @@
 
 		<Sidebar.Group>
 			<Sidebar.GroupLabel>Trips</Sidebar.GroupLabel>
-			<Sidebar.GroupAction title="Plan a new trip with AI" onclick={startNewTrip}>
-				<Plus class="size-4" />
-				<span class="sr-only">Plan a new trip with AI</span>
-			</Sidebar.GroupAction>
+			{#if !viewerMode}
+				<Sidebar.GroupAction title="Plan a new trip with AI" onclick={startNewTrip}>
+					<Plus class="size-4" />
+					<span class="sr-only">Plan a new trip with AI</span>
+				</Sidebar.GroupAction>
+			{/if}
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
 					{#each trips as trip (trip.slug)}
@@ -78,14 +92,26 @@
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
+							{#if !viewerMode}
+								<Sidebar.MenuAction
+									showOnHover
+									title="Delete trip"
+									aria-label="Delete trip"
+									onclick={() => (confirmSlug = trip.slug)}
+								>
+									<Trash2 />
+								</Sidebar.MenuAction>
+							{/if}
 						</Sidebar.MenuItem>
 					{/each}
-					<Sidebar.MenuItem>
-						<Sidebar.MenuButton onclick={startNewTrip}>
-							<Plus class="size-4" />
-							<span>Plan a new trip</span>
-						</Sidebar.MenuButton>
-					</Sidebar.MenuItem>
+					{#if !viewerMode}
+						<Sidebar.MenuItem>
+							<Sidebar.MenuButton onclick={startNewTrip}>
+								<Plus class="size-4" />
+								<span>Plan a new trip</span>
+							</Sidebar.MenuButton>
+						</Sidebar.MenuItem>
+					{/if}
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
@@ -93,3 +119,11 @@
 
 	<Sidebar.Rail />
 </Sidebar.Root>
+
+{#if !viewerMode}
+	<DeleteTripConfirm
+		trip={confirmTrip}
+		onclose={() => (confirmSlug = null)}
+		ondeleted={onDeleted}
+	/>
+{/if}

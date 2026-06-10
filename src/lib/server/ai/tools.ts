@@ -9,7 +9,8 @@ import {
 	ViralTabSchema,
 	FlightsTabSchema,
 	BudgetTabSchema,
-	TipsTabSchema
+	TipsTabSchema,
+	RestaurantsTabSchema
 } from '$lib/schemas';
 import * as tripsService from '../services/trips.service';
 
@@ -149,6 +150,20 @@ const replaceTipsTool = tool(
 	}
 );
 
+const replaceRestaurantsTool = tool(
+	'replace_restaurants',
+	'Replace the entire food & drink tab payload (callout + cities of restaurants, coffee shops & bars + note). Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks and nice coffee shops and bars, not only restaurants.',
+	{ slug: z.string(), payload: RestaurantsTabSchema },
+	async ({ slug, payload }) => {
+		try {
+			await tripsService.replaceTripTab(slug, 'restaurants', payload);
+			return ok(`Replaced restaurants on ${slug}`);
+		} catch (e) {
+			return err(e instanceof Error ? e.message : 'replace failed');
+		}
+	}
+);
+
 export const tripToolDefs = [
 	getTripTool,
 	updateTripFieldsTool,
@@ -158,7 +173,8 @@ export const tripToolDefs = [
 	replaceViralTool,
 	replaceFlightsTool,
 	replaceBudgetTool,
-	replaceTipsTool
+	replaceTipsTool,
+	replaceRestaurantsTool
 ];
 
 export const tripMcpServer = createSdkMcpServer({

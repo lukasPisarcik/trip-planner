@@ -11,7 +11,9 @@
 	import type { Trip } from '$lib/trips';
 	import '../app.css';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	const viewerMode = $derived(data.viewerMode ?? false);
 
 	onMount(() => {
 		themeStore.init();
@@ -61,14 +63,16 @@
 				</Breadcrumb.Root>
 
 				<div class="ml-auto flex items-center gap-1">
-					<Button
-						variant={aiPanelStore.open ? 'secondary' : 'ghost'}
-						size="icon"
-						onclick={() => aiPanelStore.toggle()}
-						aria-label="Toggle AI panel"
-					>
-						<Sparkles class="size-5" />
-					</Button>
+					{#if !viewerMode}
+						<Button
+							variant={aiPanelStore.open ? 'secondary' : 'ghost'}
+							size="icon"
+							onclick={() => aiPanelStore.toggle()}
+							aria-label="Toggle AI panel"
+						>
+							<Sparkles class="size-5" />
+						</Button>
+					{/if}
 					<Button
 						variant="ghost"
 						size="icon"
@@ -84,17 +88,30 @@
 				</div>
 			</header>
 
-			<div class="flex-1" style:padding-right={aiPanelStore.open ? '380px' : '0'}>
+			<div class="content-area flex-1" data-ai-open={aiPanelStore.open}>
 				{@render children?.()}
 			</div>
 
-			<AiPanel
-				tripTitle={currentTrip
-					? `${currentTrip.title}${currentTrip.titleEmphasis ? ' ' + currentTrip.titleEmphasis : ''}`
-					: undefined}
-			/>
+			{#if !viewerMode}
+				<AiPanel
+					tripTitle={currentTrip
+						? `${currentTrip.title}${currentTrip.titleEmphasis ? ' ' + currentTrip.titleEmphasis : ''}`
+						: undefined}
+				/>
+			{/if}
 		</Sidebar.Inset>
 	</Sidebar.Provider>
 </Tooltip.Provider>
 
 <Toaster richColors closeButton position="top-center" />
+
+<style>
+	/* Only reserve space for the AI panel when the viewport is wide enough to fit
+	   sidebar + content + the 380px panel. Below this it overlays as a drawer
+	   (see AiPanel.svelte) instead of squishing the content. */
+	@media (min-width: 1024px) {
+		.content-area[data-ai-open='true'] {
+			padding-right: 380px;
+		}
+	}
+</style>

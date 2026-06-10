@@ -153,6 +153,44 @@ export const ViralSectionSchema = z.object({
 	spots: z.array(ViralSpotSchema)
 });
 
+export const RestaurantCategorySchema = z.enum(['food', 'coffee', 'bar']);
+export const RestaurantSourceSchema = z.enum(['tiktok', 'instagram', 'google', 'local']);
+export const PriceLevelSchema = z.enum(['€', '€€', '€€€', '€€€€']);
+
+export const RestaurantSchema = z.object({
+	category: RestaurantCategorySchema,
+	name: z.string(),
+	location: z.string(),
+	description: z.string(),
+	cuisine: z.string().optional(),
+	priceLevel: PriceLevelSchema.optional(),
+	rating: z.number().min(0).max(5),
+	ratingCount: z.number().int().min(0),
+	tags: z.array(z.string()),
+	source: RestaurantSourceSchema.optional(),
+	socialUrl: z.url().optional(),
+	mapUrl: z.url().optional(),
+	image: z
+		.object({
+			url: z.url(),
+			alt: z.string(),
+			credit: z.string().optional()
+		})
+		.optional()
+});
+
+export const RestaurantCitySchema = z.object({
+	city: z.string(),
+	flag: z.string().optional(),
+	places: z.array(RestaurantSchema)
+});
+
+export const RestaurantsTabSchema = z.object({
+	callout: z.string(),
+	cities: z.array(RestaurantCitySchema),
+	note: z.string()
+});
+
 export const FlightInfoLineSchema = z.object({
 	label: z.string(),
 	value: z.string()
@@ -229,6 +267,9 @@ export const ViralTabSchema = z.object({
 
 export const CardPillSchema = z.object({ label: z.string() });
 
+// Free-form brainstorm notes (a single text blob). The co-pilot reads it for context.
+export const BrainstormSchema = z.string();
+
 export const TripSchema = z.object({
 	slug: z
 		.string()
@@ -251,11 +292,12 @@ export const TripSchema = z.object({
 	viral: ViralTabSchema,
 	flights: FlightsTabSchema,
 	budget: BudgetTabSchema,
-	tips: TipsTabSchema
+	tips: TipsTabSchema,
+	restaurants: RestaurantsTabSchema.optional(),
+	brainstorm: BrainstormSchema.optional()
 });
 
-// Headline-only fields the AI can patch with `update_trip_fields` and that
-// the manual click-to-edit UI in TripView writes through.
+// Headline-only fields the AI co-pilot can patch with the `update_trip_fields` tool.
 export const TripHeadlinePatchSchema = TripSchema.pick({
 	title: true,
 	titleEmphasis: true,

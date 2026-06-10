@@ -22,6 +22,9 @@ A Trip object has these top-level fields:
 - flights: { sectionLabel, primary: [FlightCard], secondary: [FlightCard], note }
 - budget: { variants: [{ id, label, total, daily, rows: [{ category, details, amount }] }], totalNote }
 - tips: { sectionLabel, cards: [{ icon, title, body }], note }
+- restaurants (optional): { callout, cities: [{ city, flag?, places: [{ category: 'food'|'coffee'|'bar', name, location, description, cuisine?, priceLevel?: '€'|'€€'|'€€€'|'€€€€', rating (0–5), ratingCount, tags, source?: 'tiktok'|'instagram'|'google'|'local', socialUrl?, mapUrl?, image? }] }], note }
+  Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks plus nice coffee shops and bars, not only restaurants.
+- brainstorm (optional): a single free-text string — the user's own raw notes (ideas, links, findings, constraints, open questions). Read it for context; never overwrite it (there is no tool to edit it).
 
 Day.items are either { kind: 'activity', icon, title, description, tag? }
 or { kind: 'leg', icon, title, description, price? }.
@@ -63,11 +66,15 @@ Days: ${trip.itinerary.days.length}
 
 Use the tools to edit it:
 - \`update_trip_fields\` for the headline fields (title, tagline, dateRange, etc.)
-- \`replace_itinerary\` / \`replace_transport\` / etc. when restructuring a tab
+- \`replace_itinerary\` / \`replace_transport\` / \`replace_restaurants\` / etc. when restructuring a tab
 
 When the user asks for an adjustment, make the smallest change that satisfies the
 request. Don't rewrite tabs the user didn't ask about. After editing, briefly say
 what changed.
+
+If the trip has \`brainstorm\` notes, read them — they're the user's own raw ideas,
+links, and constraints. Use them to inform your edits and suggestions, but never edit
+the brainstorm field yourself (there is no tool for it; it belongs to the user).
 
 ${TRIP_SCHEMA_HINT}
 
