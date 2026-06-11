@@ -4792,79 +4792,127 @@
               "icon": "💀",
               "kind": "activity",
               "tag": "Must-see",
-              "title": "Sedlec Ossuary (Kostnice)"
+              "title": "Sedlec Ossuary (Kostnice)",
+              "coords": {
+                "lat": 49.96083,
+                "lng": 15.28861
+              }
             },
             {
               "description": "A UNESCO-listed Gothic-Baroque cathedral right next door to the Ossuary. Hugely underrated — most tourists skip it. The vast, serene interior is a complete contrast to the Ossuary. 20–30 min.",
               "icon": "⛪",
               "kind": "activity",
               "tag": "Hidden gem",
-              "title": "Sedlec Cathedral (Cathedral of the Assumption)"
+              "title": "Sedlec Cathedral (Cathedral of the Assumption)",
+              "coords": {
+                "lat": 49.96222,
+                "lng": 15.29111
+              }
             },
             {
               "description": "The original royal mint of Bohemia, where Prague Groschen were struck from local silver. Tour the royal apartments, the St. Wenceslas Chapel, and the coin-minting hall. 45–60 min with guided tour.",
               "icon": "🏰",
               "kind": "activity",
               "tag": "History",
-              "title": "Italian Court (Vlašský dvůr)"
+              "title": "Italian Court (Vlašský dvůr)",
+              "coords": {
+                "lat": 49.94833,
+                "lng": 15.26806
+              }
             },
             {
               "description": "Strap on a hard hat and descend into a real 14th-century silver mine under the town. The mine tour takes ~60 min and is genuinely atmospheric. Book ahead in peak season at cms-kutnahora.cz.",
               "icon": "⛏️",
               "kind": "activity",
               "tag": "Unique",
-              "title": "Czech Museum of Silver + Medieval Mine Tour"
+              "title": "Czech Museum of Silver + Medieval Mine Tour",
+              "coords": {
+                "lat": 49.94583,
+                "lng": 15.26417
+              }
             },
             {
               "description": "One of the most beautiful Gothic churches in Central Europe. The miners' frescoes inside are extraordinary. The terrace approach along the Jesuit College is one of the best walks in the country.",
               "icon": "⛪",
               "kind": "activity",
               "tag": "Must-see",
-              "title": "Cathedral of St. Barbara (Chrám sv. Barbory)"
+              "title": "Cathedral of St. Barbara (Chrám sv. Barbory)",
+              "coords": {
+                "lat": 49.94472,
+                "lng": 15.26306
+              }
             },
             {
               "description": "The long Baroque building flanking the approach to St. Barbara. Walk the full terrace lined with Baroque statues, with views over the Vrchlice valley. One of the best 20-minute walks in Bohemia.",
               "icon": "🏛️",
               "kind": "activity",
               "tag": "Views",
-              "title": "Jesuit College Promenade (Barborská)"
+              "title": "Jesuit College Promenade (Barborská)",
+              "coords": {
+                "lat": 49.94528,
+                "lng": 15.2642
+              }
             },
             {
               "description": "A beautifully carved Gothic fountain built in 1493, one of the finest surviving Gothic fountains in Bohemia. Easy 10-min stop en route between the cathedral and the town center.",
               "icon": "🪨",
               "kind": "activity",
-              "title": "Stone Fountain (Kamenný Kašna)"
+              "title": "Stone Fountain (Kamenný Kašna)",
+              "coords": {
+                "lat": 49.94861,
+                "lng": 15.26639
+              }
             },
             {
               "description": "A late-Gothic townhouse with one of the most ornate Gothic facades in the Czech Republic. Worth a close look from outside even if you skip the museum interior. 10 min.",
               "icon": "🏠",
               "kind": "activity",
-              "title": "Stone House (Kamenný Dům)"
+              "title": "Stone House (Kamenný Dům)",
+              "coords": {
+                "lat": 49.94889,
+                "lng": 15.26861
+              }
             },
             {
               "description": "Several solid restaurants on the main square. Dobrovická restaurace for hearty Czech food; Café Restaurant Piazza for something lighter. Budget 200–350 CZK for a main + beer.",
               "icon": "🍺",
               "kind": "activity",
               "tag": "Food",
-              "title": "Lunch on Palacký Square"
+              "title": "Lunch on Palacký Square",
+              "coords": {
+                "lat": 49.94806,
+                "lng": 15.26833
+              }
             },
             {
               "description": "A 14th-century Gothic church right in the town center, notable for its leaning tower. Mix of Gothic and Baroque inside. Free to enter and almost always quiet.",
               "icon": "⛪",
               "kind": "activity",
-              "title": "Church of St. James (Kostel sv. Jakuba)"
+              "title": "Church of St. James (Kostel sv. Jakuba)",
+              "coords": {
+                "lat": 49.94861,
+                "lng": 15.26944
+              }
             },
             {
               "description": "The Baroque plague column on the upper square, then a wander down Šultysova — one of the prettiest cobbled streets in the old town. Good for photos and people-watching.",
               "icon": "🏛️",
               "kind": "activity",
-              "title": "Plague Column & Šultysova Street"
+              "title": "Plague Column & Šultysova Street",
+              "coords": {
+                "lat": 49.94833,
+                "lng": 15.26889
+              }
             },
             {
               "description": "Czech modern and contemporary art housed inside the former Jesuit College. Even if you skip the exhibitions, the building is spectacular. Allow 45–60 min if you go in.",
               "icon": "🎨",
               "kind": "activity",
-              "title": "GASK — Gallery of the Central Bohemian Region"
+              "title": "GASK — Gallery of the Central Bohemian Region",
+              "coords": {
+                "lat": 49.945,
+                "lng": 15.26528
+              }
             },
             {
               "description": "Comfortable evening trains back to Prague at roughly 17:00, 19:00, and 21:00. Direct, ~1 hour.",
@@ -5303,35 +5351,55 @@
               "icon": "🧱",
               "title": "Castle Gate & Bear Moat",
               "description": "Quick stop at the entrance to see the brown bears in the original 16th-century moat — a Rožmberk dynasty tradition. Free from the bridge above — 10 min max.",
-              "tag": "Free"
+              "tag": "Free",
+              "coords": {
+                "lat": 48.81306,
+                "lng": 14.31556
+              }
             },
             {
               "kind": "activity",
               "icon": "🗼",
               "title": "Castle Tower (Zámecká věž)",
               "description": "The 162-step climb for the definitive panorama — Vltava river bend, red rooftops, forested hills. The best view in South Bohemia. Worth any queue.",
-              "tag": "Must-see"
+              "tag": "Must-see",
+              "coords": {
+                "lat": 48.81222,
+                "lng": 14.315
+              }
             },
             {
               "kind": "activity",
               "icon": "👑",
               "title": "Castle Tour I — State Rooms",
               "description": "The main baroque circuit through the Masquerade Hall with its extraordinary trompe-l'œil frescoes. ~50 min guided. The essential castle experience if you're doing only one tour today.",
-              "tag": "History"
+              "tag": "History",
+              "coords": {
+                "lat": 48.8125,
+                "lng": 14.31583
+              }
             },
             {
               "kind": "activity",
               "icon": "🍽️",
               "title": "Quick Lunch in the Old Town",
               "description": "Hospoda Na Louži or Nonna Gina for a fast, good-value meal. Keep it under 45 min — you need to reach the bus stop by 13:30 at the latest.",
-              "tag": "Food"
+              "tag": "Food",
+              "coords": {
+                "lat": 48.81083,
+                "lng": 14.31528
+              }
             },
             {
               "kind": "activity",
               "icon": "🌉",
               "title": "Lazebnický Most & Latrán Wander",
               "description": "Cross the Barber's Bridge for the classic castle-over-river photo, then stroll Latrán Street toward the bus stop. Your Český Krumlov in a nutshell — then head to the bus.",
-              "tag": "Photo"
+              "tag": "Photo",
+              "coords": {
+                "lat": 48.81139,
+                "lng": 14.31472
+              }
             },
             {
               "kind": "leg",
@@ -5345,27 +5413,43 @@
               "icon": "🏛️",
               "title": "Hauptplatz & Landstraße",
               "description": "From the Hauptbahnhof take Tram 1 or 3 to Hauptplatz (10 min, €2.50). Linz's vast baroque main square is one of the largest in Austria. Walk Landstraße — the pedestrian boulevard — toward the Alter Dom.",
-              "tag": "Austria"
+              "tag": "Austria",
+              "coords": {
+                "lat": 48.30611,
+                "lng": 14.28583
+              }
             },
             {
               "kind": "activity",
               "icon": "⛪",
               "title": "Alter Dom (Old Cathedral)",
-              "description": "The ornate baroque cathedral where Anton Bruckner served as court organist for 12 years. Compact and beautiful inside — free entry, 15 min."
+              "description": "The ornate baroque cathedral where Anton Bruckner served as court organist for 12 years. Compact and beautiful inside — free entry, 15 min.",
+              "coords": {
+                "lat": 48.30444,
+                "lng": 14.28778
+              }
             },
             {
               "kind": "activity",
               "icon": "🤖",
               "title": "Ars Electronica Center",
               "description": "Austria's flagship museum of media art, AI, and digital culture on the Danube riverfront. Walk there from Hauptplatz along the river (10 min). The entire building is a programmable LED display — spectacular at dusk. 45–60 min inside.",
-              "tag": "Must-see"
+              "tag": "Must-see",
+              "coords": {
+                "lat": 48.31028,
+                "lng": 14.28528
+              }
             },
             {
               "kind": "activity",
               "icon": "🎂",
               "title": "Linzer Torte at Jindrak",
               "description": "Jindrak is Linz's most famous Konditorei, baking the Linzer Torte (claimed world's oldest cake recipe, dating to 1653) since 1929. On Landstraße — easy to fit in on the way back to the Hauptbahnhof. A Melange and a slice: non-negotiable.",
-              "tag": "Food"
+              "tag": "Food",
+              "coords": {
+                "lat": 48.30222,
+                "lng": 14.29056
+              }
             },
             {
               "kind": "leg",
@@ -6044,28 +6128,44 @@
               "icon": "🏰",
               "title": "Wawel Castle & Cathedral",
               "description": "Zaparkuj pri ul. Dietla (Kazimierz) a vyjdi pešo na Wawelský vrch — 15 minút chôdze. Exteriér a nádvorie sú zadarmo. Katedrála (~10 €) stojí za to — pohrebisko poľských kráľov s kryptou a zlatou kapličkou. Ráno pred 10:00 tu prakticky nie sú turisti.",
-              "tag": "Must-see"
+              "tag": "Must-see",
+              "coords": {
+                "lat": 50.05417,
+                "lng": 19.93528
+              }
             },
             {
               "kind": "activity",
               "icon": "☕",
               "title": "Ranná káva: Moment Coffee Roasters",
               "description": "Ul. Brzozowa 17, Kazimierz. Vlastná pražiareň, výborné espresso a pour-over. Malý a autentický — žiadni turisti, samí locals. Pravidelne sa objavuje na IG krakovskej coffee komunity. Ideálna zastávka po Waweli pred nájazdom na Rynek.",
-              "tag": "Specialty káva"
+              "tag": "Specialty káva",
+              "coords": {
+                "lat": 50.05722,
+                "lng": 19.93722
+              }
             },
             {
               "kind": "activity",
               "icon": "⛪",
               "title": "Rynek Główny — Hlavné námestie",
               "description": "Najväčšie stredoveké námestie v Európe. Mariánska bazilika (vstup ~8 €, hodinový trúbač je bez vstupného), Sukiennice — historická trhová hala, pohľad na Wieża Ratuszową. Ranné svetlo je tu magické — choď pred 11:00.",
-              "tag": "Ikona mesta"
+              "tag": "Ikona mesta",
+              "coords": {
+                "lat": 50.06167,
+                "lng": 19.93722
+              }
             },
             {
               "kind": "activity",
               "icon": "🥐",
               "title": "Desiata: Charlotte Bistro & Pain",
               "description": "Plac Szczepański 2. Francúzska patisserie, ktorá ovládla krakovský Instagram — croissanty s maslom, tartiny so syrom, café au lait. Každý druhý post o Krakove je odtiaľto. Fronta pred otvorením je normálna, príď skôr ako sa Rynek zaplní turistami.",
-              "tag": "🔥 Instagram"
+              "tag": "🔥 Instagram",
+              "coords": {
+                "lat": 50.06417,
+                "lng": 19.93444
+              }
             },
             {
               "kind": "leg",
@@ -6078,35 +6178,55 @@
               "icon": "🫙",
               "title": "Obed: Hamsa — Hummus & Happiness",
               "description": "Ul. Szeroka 2, Kazimierz. Izraelsko-židovská kuchyňa uprostred historickej štvrte — najlepší hummus v Poľsku, shakshuka, pita. Interiér plný detailov, každý záber je Instagramovateľný. Rezervácia cez hamsa.pl odporúčaná — príď pred 12:30 alebo po 14:00.",
-              "tag": "Rezervuj vopred"
+              "tag": "Rezervuj vopred",
+              "coords": {
+                "lat": 50.05167,
+                "lng": 19.94528
+              }
             },
             {
               "kind": "activity",
               "icon": "🎨",
               "title": "Prechádzka Kazimierzom",
               "description": "Ul. Józefa a Meiselsa — galérie, vintage shopy, street art. Pozri si Starú synagógu (ul. Szeroka 24, múzeum, ~8 €) a Remuh synagógu s histórickým cintorínom. Všetko je v okruhu 5 minút chôdze.",
-              "tag": "Kultúra"
+              "tag": "Kultúra",
+              "coords": {
+                "lat": 50.05083,
+                "lng": 19.94389
+              }
             },
             {
               "kind": "activity",
               "icon": "🍷",
               "title": "Popoludňajší drink: Hevre",
               "description": "Ul. Miodowa 3, Kazimierz. Reštaurácia a wine bar v rekonštruovanej synagóge — vysoké klenby, umelecké svietidlá. Jeden z najphotogenickejších interiérov v Poľsku, dominuje poľskému TikToku. Choď aspoň na pohár prirodzeného vína. Ak nechceš alkohol, Padre Coffee vedľa je taktiež top.",
-              "tag": "🔥 TikTok"
+              "tag": "🔥 TikTok",
+              "coords": {
+                "lat": 50.0525,
+                "lng": 19.94167
+              }
             },
             {
               "kind": "activity",
               "icon": "📚",
               "title": "Záverečná káva: Massolit Books & Café",
               "description": "Ul. Felicjanek 4, Kazimierz. Legendárna kníhkupecká kaviareň — anglické knihy, domáce koláče, skvelý cheesecake. Obľúbená u locals, takmer žiadni turisti. Ideálna na posledné posedenie pred odchodom domov.",
-              "tag": "Locals only"
+              "tag": "Locals only",
+              "coords": {
+                "lat": 50.06,
+                "lng": 19.92889
+              }
             },
             {
               "kind": "activity",
               "icon": "🛍️",
               "title": "Posledná prechádzka a nákupy",
               "description": "Sukiennice na Rynku — ručne vyrobené šperky, jantár, suveníry. Alebo len posedenie na terase s poľským pivom Żywiec pred cestou domov. Odchod ideálne o 18:30 – 19:00.",
-              "tag": "Voľný čas"
+              "tag": "Voľný čas",
+              "coords": {
+                "lat": 50.06167,
+                "lng": 19.93694
+              }
             },
             {
               "kind": "leg",

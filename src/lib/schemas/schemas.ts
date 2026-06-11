@@ -73,12 +73,18 @@ export const HeroPillSchema = z.object({
 	tone: AccentSchema
 });
 
+export const CoordsSchema = z.object({
+	lat: z.number().min(-90).max(90),
+	lng: z.number().min(-180).max(180)
+});
+
 export const ActivityItemSchema = z.object({
 	kind: z.literal('activity'),
 	icon: z.string(),
 	title: z.string(),
 	description: z.string(),
-	tag: z.string().optional()
+	tag: z.string().optional(),
+	coords: CoordsSchema.optional()
 });
 
 export const LegItemSchema = z.object({
@@ -86,7 +92,8 @@ export const LegItemSchema = z.object({
 	icon: z.string(),
 	title: z.string(),
 	description: z.string(),
-	price: z.string().optional()
+	price: z.string().optional(),
+	coords: CoordsSchema.optional()
 });
 
 export const DayItemSchema = z.discriminatedUnion('kind', [ActivityItemSchema, LegItemSchema]);

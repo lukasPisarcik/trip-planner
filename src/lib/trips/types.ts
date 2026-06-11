@@ -11,12 +11,20 @@ export interface HeroPill {
 	tone: Accent;
 }
 
+/** Geographic location of an itinerary stop, used to plot it on the day map. */
+export interface Coords {
+	lat: number;
+	lng: number;
+}
+
 export interface ActivityItem {
 	kind: 'activity';
 	icon: string;
 	title: string;
 	description: string;
 	tag?: string;
+	/** When set, the stop appears as a numbered, connected marker on the day map. */
+	coords?: Coords;
 }
 
 export interface LegItem {
@@ -25,6 +33,8 @@ export interface LegItem {
 	title: string;
 	description: string;
 	price?: string;
+	/** When set, the leg appears as a numbered, connected marker on the day map. */
+	coords?: Coords;
 }
 
 export type DayItem = ActivityItem | LegItem;

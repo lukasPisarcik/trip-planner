@@ -1,9 +1,35 @@
 <script lang="ts">
 	import type { Day } from '$lib/trips';
+	import DayMap, { type DayMapPoint } from './DayMap.svelte';
 
 	let { day }: { day: Day } = $props();
 	// svelte-ignore state_referenced_locally
 	let open = $state(day.defaultOpen ?? false);
+
+	// Number the stops that have coordinates (in itinerary order) and split them
+	// into walking stretches — a transport leg without coords ends one stretch so
+	// the map never draws a connecting line across a bus/train ride.
+	const mapData = $derived.by(() => {
+		const numbers: (number | null)[] = [];
+		const segments: DayMapPoint[][] = [];
+		let current: DayMapPoint[] = [];
+		let n = 0;
+		for (const item of day.items) {
+			if (item.coords) {
+				n += 1;
+				numbers.push(n);
+				current.push({ ...item.coords, n, title: item.title, icon: item.icon });
+			} else {
+				numbers.push(null);
+				if (item.kind === 'leg' && current.length) {
+					segments.push(current);
+					current = [];
+				}
+			}
+		}
+		if (current.length) segments.push(current);
+		return { numbers, segments, hasMap: n > 0 };
+	});
 </script>
 
 <div class="day-card" class:open>
@@ -20,10 +46,17 @@
 	</button>
 	{#if open}
 		<div class="day-body">
+			{#if mapData.hasMap}
+				<DayMap segments={mapData.segments} />
+			{/if}
 			{#each day.items as item, i (i)}
 				{#if item.kind === 'leg'}
 					<div class="leg">
-						<div class="leg-icon">{item.icon}</div>
+						{#if mapData.numbers[i] != null}
+							<div class="stop-num">{mapData.numbers[i]}</div>
+						{:else}
+							<div class="leg-icon">{item.icon}</div>
+						{/if}
 						<div class="leg-body">
 							<strong>{item.title}</strong>
 							<span>{item.description}</span>
@@ -34,7 +67,11 @@
 					</div>
 				{:else}
 					<div class="activity">
-						<div class="act-icon">{item.icon}</div>
+						{#if mapData.numbers[i] != null}
+							<div class="stop-num">{mapData.numbers[i]}</div>
+						{:else}
+							<div class="act-icon">{item.icon}</div>
+						{/if}
 						<div class="act-body">
 							<h4>{item.title}</h4>
 							<p>{item.description}</p>
@@ -137,6 +174,22 @@
 		flex-shrink: 0;
 		margin-top: 1px;
 		line-height: 1.2;
+	}
+	/* Numbered badge mirroring the matching marker on the day map. */
+	.stop-num {
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		background: var(--trip-accent, var(--sage));
+		color: #fff;
+		font-size: 11px;
+		font-weight: 700;
+		line-height: 1;
+		margin-top: 1px;
 	}
 	.act-body h4 {
 		font-size: 13px;
