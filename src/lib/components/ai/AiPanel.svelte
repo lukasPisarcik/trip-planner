@@ -6,9 +6,15 @@
 	import { toast } from '$lib';
 	import { Button } from '$lib/components';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components';
-	import { aiPanelStore, modelStore, createChatSession, messagesToItems } from '$lib/stores';
+	import {
+		aiPanelStore,
+		modelStore,
+		createChatSession,
+		messagesToItems,
+		chatActivityStore
+	} from '$lib/stores';
 	import { listChats, getChatBySession } from '$lib/remote/chats.remote';
-	import type { ChatMessage } from '$lib/schemas';
+	import { providerOf, type ChatMessage } from '$lib/schemas';
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
 	import EmptyState from './EmptyState.svelte';
@@ -22,8 +28,17 @@
 	// The panel only renders on a trip page, so a slug is always present.
 	const tripSlug = $derived<string>(page.params.slug ?? '');
 
+	// Which provider's login the auth-required alert should point at (the active model's).
+	const authProvider = $derived(providerOf(modelStore.current));
+
 	// All conversations for this trip (newest first), for the picker.
 	const chatsListQuery = listChats({});
+	// Keep the list live when a turn (here or in the standalone workspace) creates
+	// or updates a session — chats are server-mediated, so we refresh on the signal.
+	$effect(() => {
+		void chatActivityStore.version;
+		chatsListQuery.refresh();
+	});
 	interface SessionRecord {
 		sessionId: string;
 		tripSlug: string | null;
@@ -150,6 +165,9 @@
 			tripSlug,
 			model: modelStore.forMode('edit-trip'),
 			sessionId: resumeId,
+			// "New chat" has no session to resume → force a fresh thread instead of
+			// resuming the trip's latest (getOrCreateChat) thread.
+			forceNew: !resumeId,
 			onDone: async () => {
 				await chatsListQuery.refresh();
 				if (selectedSessionId && !liveOnly) {
@@ -222,10 +240,17 @@
 	{#if session.authRequired}
 		<div class="px-4 py-3">
 			<Alert variant="destructive">
-				<AlertTitle>Claude Code not signed in</AlertTitle>
-				<AlertDescription>
-					Run <code>claude login</code> in your terminal and reload the page.
-				</AlertDescription>
+				{#if authProvider === 'openai'}
+					<AlertTitle>Codex not signed in</AlertTitle>
+					<AlertDescription>
+						Run <code>codex login</code> in your terminal and reload the page.
+					</AlertDescription>
+				{:else}
+					<AlertTitle>Claude Code not signed in</AlertTitle>
+					<AlertDescription>
+						Run <code>claude login</code> in your terminal and reload the page.
+					</AlertDescription>
+				{/if}
 			</Alert>
 		</div>
 	{:else if session.error}
@@ -283,6 +308,7 @@
 				status={session.status}
 				statusLabel={session.statusLabel}
 				class="p-4 pb-32"
+				onsubmitQuestions={(text) => send(text)}
 			/>
 		{/if}
 	</div>
@@ -297,7 +323,7 @@
 					onsend={send}
 					onstop={() => session.stop()}
 					streaming={session.streaming}
-					disabled={session.authRequired}
+					disabled={session.authRequired || !modelStore.hasAnyProvider}
 					usage={session.usage}
 					showModel
 					placeholder={`Ask anything about ${tripTitle ?? 'this trip'}…`}

@@ -15,9 +15,10 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { cn } from '$lib/utils';
 	import Logo from '$lib/components/Logo.svelte';
-	import { listTrips, setTripFavorite, moveTripToFolder } from '$lib/remote/trips.remote';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import { setTripFavorite, moveTripToFolder } from '$lib/remote/trips.remote';
 	import { listChats } from '$lib/remote/chats.remote';
-	import { listFolders } from '$lib/remote/folders.remote';
 	import { chatActivityStore } from '$lib/stores';
 	import {
 		House,
@@ -55,12 +56,14 @@
 
 	const sidebar = Sidebar.useSidebar();
 
-	const tripsQuery = listTrips({});
-	const trips = $derived<Trip[]>(tripsQuery.current ?? []);
+	// Trips & folders read reactively from Convex — they live-update after any write
+	// (favorite, move, folder CRUD) with no manual refresh.
+	const tripsQuery = useQuery(api.trips.listTrips, {});
+	const trips = $derived<Trip[]>((tripsQuery.data ?? []) as Trip[]);
 	const favorites = $derived(trips.filter((t) => t.favorite));
 
-	const foldersQuery = listFolders({});
-	const folders = $derived<Folder[]>(foldersQuery.current ?? []);
+	const foldersQuery = useQuery(api.folders.listFolders, {});
+	const folders = $derived<Folder[]>((foldersQuery.data ?? []) as Folder[]);
 	const folderIdSet = $derived(new Set(folders.map((f) => f.id)));
 
 	// Trips grouped by folder, and the ungrouped remainder (favorites are NOT
@@ -73,8 +76,17 @@
 	const viewerMode = $derived(page.data.viewerMode ?? false);
 	const dndDisabled = $derived(viewerMode || sidebar.state === 'collapsed');
 
+	// Chats stay server-mediated (private AI conversations), so this keeps the
+	// point-in-time read + manual refresh pattern.
 	const chatsQuery = listChats({});
 	const sessions = $derived<SessionRecord[]>(chatsQuery.current ?? []);
+
+	// Refresh the session list the moment a turn creates/updates a chat anywhere
+	// (e.g. a trip just planned in /agent) — no page reload needed.
+	$effect(() => {
+		void chatActivityStore.version;
+		chatsQuery.refresh();
+	});
 
 	// Sessions grouped under the trip they belong to (newest first — listAllChats
 	// already sorts by updatedAt desc). Null-slug conversations are "drafts".
@@ -218,7 +230,6 @@
 		const current = trip.folderId && folderIdSet.has(trip.folderId) ? trip.folderId : null;
 		if (current === targetFolderId) return; // same zone → reorder only, not persisted
 		await moveTripToFolder({ slug: movedId, folderId: targetFolderId });
-		await tripsQuery.refresh();
 	}
 
 	// --- Actions -------------------------------------------------------------
@@ -233,11 +244,9 @@
 	}
 	async function toggleFavorite(trip: Trip) {
 		await setTripFavorite({ slug: trip.slug, favorite: !trip.favorite });
-		await tripsQuery.refresh();
 	}
 	async function moveTrip(trip: Trip, folderId: string | null) {
 		await moveTripToFolder({ slug: trip.slug, folderId });
-		await tripsQuery.refresh();
 		if (folderId) folderOpen[folderId] = true;
 	}
 	function closeCreateFolder() {
@@ -245,23 +254,15 @@
 		pendingMoveSlug = null;
 	}
 	async function onFolderCreated(id: string) {
-		await foldersQuery.refresh();
 		if (pendingMoveSlug) {
 			const slug = pendingMoveSlug;
 			pendingMoveSlug = null;
 			await moveTripToFolder({ slug, folderId: id });
-			await tripsQuery.refresh();
 		}
 		folderOpen[id] = true;
 	}
-	async function onFolderRenamed() {
-		await foldersQuery.refresh();
-	}
-	async function onFolderDeleted() {
-		await Promise.all([foldersQuery.refresh(), tripsQuery.refresh()]);
-	}
 	async function onDeleted(slug: string) {
-		await tripsQuery.refresh();
+		// trips/folders update reactively; only handle navigation off a deleted trip.
 		if (page.url.pathname === tripHref(slug)) await goto(resolve('/'));
 	}
 	async function onSessionDeleted(sessionId: string) {
@@ -709,11 +710,11 @@
 	<RenameFolderDialog
 		folder={renameTarget}
 		onclose={() => (renameTarget = null)}
-		onrenamed={onFolderRenamed}
+		onrenamed={() => {}}
 	/>
 	<DeleteFolderConfirm
 		folder={deleteFolderTarget}
 		onclose={() => (deleteFolderTarget = null)}
-		ondeleted={onFolderDeleted}
+		ondeleted={() => {}}
 	/>
 {/if}

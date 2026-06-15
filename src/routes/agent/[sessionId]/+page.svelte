@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components';
 	import AgentChat from '$lib/components/ai/AgentChat.svelte';
+	import LogoLoader from '$lib/components/ai/LogoLoader.svelte';
 	import { getChatBySession } from '$lib/remote/chats.remote';
 	import type { ChatMessage } from '$lib/schemas';
 
@@ -22,7 +23,9 @@
 </svelte:head>
 
 {#if chatQuery.current === undefined}
-	<!-- loading -->
+	<div class="flex h-[calc(100svh-56px)] items-center justify-center text-muted-foreground">
+		<LogoLoader size={11} />
+	</div>
 {:else if record === null}
 	<div
 		class="flex h-[calc(100svh-56px)] flex-col items-center justify-center gap-4 text-muted-foreground"

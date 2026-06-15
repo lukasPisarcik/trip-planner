@@ -46,6 +46,14 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 	const args = asRecord(input);
 
 	switch (name) {
+		case 'ask_user':
+			// Rendered as an interactive form, not a chip — this only feeds the
+			// "working" status label while the model composes the questions.
+			return {
+				icon: '🤔',
+				label: 'Asked a few questions',
+				pending: 'Putting together a few questions…'
+			};
 		case 'create_trip': {
 			const title = str(args.title) ?? str(args.slug) ?? 'trip';
 			const flag = str(args.flag) ?? '';

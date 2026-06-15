@@ -3,13 +3,16 @@
 	import { cn } from '$lib/utils';
 	import type { TurnItem, ChatStatus } from '$lib/stores';
 	import Message from './Message.svelte';
+	import LogoLoader from './LogoLoader.svelte';
 
 	let {
 		items,
 		streaming = false,
 		status = 'idle',
 		statusLabel = '',
-		class: className = 'p-4'
+		class: className = 'p-4',
+		style = '',
+		onsubmitQuestions
 	}: {
 		items: TurnItem[];
 		streaming?: boolean;
@@ -17,6 +20,10 @@
 		statusLabel?: string;
 		/** Padding / max-width / centering for the scroll container. */
 		class?: string;
+		/** Inline style for the scroll container (e.g. a dynamic bottom padding). */
+		style?: string;
+		/** Submit handler for an inline ask_user question form (answers → next turn). */
+		onsubmitQuestions?: (text: string) => void;
 	} = $props();
 
 	let scrollEl = $state<HTMLDivElement | null>(null);
@@ -41,41 +48,15 @@
 <div
 	bind:this={scrollEl}
 	class={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto', className)}
+	{style}
 >
 	{#each items as item (item.id)}
-		<Message {item} />
+		<Message {item} {onsubmitQuestions} />
 	{/each}
 	{#if showStatus}
-		<div class="inline-flex w-fit items-center gap-2 text-[12.5px] text-muted-foreground">
-			<span class="dots inline-flex gap-1"><span></span><span></span><span></span></span>
+		<div class="inline-flex w-fit items-center gap-2.5 text-[12.5px] text-muted-foreground">
+			<LogoLoader />
 			<span>{statusLabel}</span>
 		</div>
 	{/if}
 </div>
-
-<style>
-	/* Typing dots — a staggered keyframe loop that has no Tailwind utility. */
-	.dots span {
-		width: 6px;
-		height: 6px;
-		border-radius: 9999px;
-		background: hsl(var(--muted-foreground));
-		animation: blink 1.2s infinite;
-	}
-	.dots span:nth-child(2) {
-		animation-delay: 0.2s;
-	}
-	.dots span:nth-child(3) {
-		animation-delay: 0.4s;
-	}
-	@keyframes blink {
-		0%,
-		60%,
-		100% {
-			opacity: 0.3;
-		}
-		30% {
-			opacity: 1;
-		}
-	}
-</style>

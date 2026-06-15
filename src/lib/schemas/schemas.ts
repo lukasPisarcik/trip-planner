@@ -362,12 +362,46 @@ export const MoveTripToFolderInput = z.object({
 // AI chat schemas.
 // =============================================================================
 
+// Interactive clarifying-questions ("grill-me") payload. The agent calls the
+// `ask_user` tool with this; the client renders it as an in-chat form and the
+// user's answers come back as the next message.
+export const AskOptionSchema = z.object({
+	label: z.string().min(1), // shown to the user
+	value: z.string().min(1), // serialized into the answer message
+	hint: z.string().optional() // small helper text under the option
+});
+
+export const AskQuestionKindSchema = z.enum(['single', 'multi', 'text']);
+
+export const AskQuestionSchema = z.object({
+	id: z.string().min(1), // stable key for mapping answers
+	question: z.string().min(1),
+	kind: AskQuestionKindSchema,
+	// Required for single/multi (enforced in the ask_user tool handler).
+	options: z.array(AskOptionSchema).optional(),
+	// Adds a free-text "Other" field to single/multi questions.
+	allowOther: z.boolean().optional()
+});
+
+export const AskUserPayloadSchema = z.object({
+	intro: z.string().optional(),
+	questions: z.array(AskQuestionSchema).min(1).max(8)
+});
+export type AskUserPayload = z.infer<typeof AskUserPayloadSchema>;
+
 // `thinking` carries the model's streamed reasoning (rendered as a collapsible
 // block). `tool` messages store a friendly summary in `content` and an optional
 // plain-language `detail` — never raw JSON. `error` marks a turn that failed
 // before producing any reply, so reloads show what happened instead of a
-// dangling, unanswered user message.
-export const ChatRoleSchema = z.enum(['user', 'assistant', 'tool', 'thinking', 'error']);
+// dangling, unanswered user message. `questions` carries an `ask_user` form.
+export const ChatRoleSchema = z.enum([
+	'user',
+	'assistant',
+	'tool',
+	'thinking',
+	'error',
+	'questions'
+]);
 
 export const ChatMessageSchema = z.object({
 	id: z.string(),
@@ -376,32 +410,96 @@ export const ChatMessageSchema = z.object({
 	toolName: z.string().optional(),
 	// Expandable plain-language summary for tool messages (and reusable elsewhere).
 	detail: z.string().optional(),
+	// Set only on `questions` messages — the structured ask_user form payload.
+	questions: AskUserPayloadSchema.optional(),
 	createdAt: z.number()
 });
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
 // =============================================================================
-// Claude model selection (standalone agent view + composer dropdown).
-// Vendor-agnostic shape so non-Claude providers could be added later, but the
-// Claude Agent SDK is Claude-only for now. The route falls back to the
+// AI model selection (standalone agent view + composer dropdown).
+// Two providers run the agent the same way — through a locally-installed CLI:
+// Anthropic via the Claude Code SDK, OpenAI via the Codex SDK. Each model
+// carries its `provider` so the picker can render the right logo and the
+// backend can dispatch to the right runner. The route falls back to the
 // `ANTHROPIC_MODEL` env var when no (or an unknown) model is supplied.
 // =============================================================================
+
+export const ChatProviderSchema = z.enum(['anthropic', 'openai']);
+export type ChatProvider = z.infer<typeof ChatProviderSchema>;
 
 export const ChatModelSchema = z.enum([
 	'claude-opus-4-8',
 	'claude-sonnet-4-6',
-	'claude-haiku-4-5-20251001'
+	'claude-haiku-4-5-20251001',
+	// OpenAI / Codex models, run via the local Codex CLI. Adjust these ids to
+	// match the models your installed Codex CLI accepts.
+	'gpt-5-codex',
+	'gpt-5'
 ]);
 export type ChatModel = z.infer<typeof ChatModelSchema>;
 
-export const CHAT_MODELS: ReadonlyArray<{ id: ChatModel; label: string; blurb: string }> = [
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', blurb: 'Most capable' },
-	{ id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', blurb: 'Balanced' },
-	{ id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', blurb: 'Fastest' }
+export interface ChatModelMeta {
+	id: ChatModel;
+	provider: ChatProvider;
+	/** Vendor word shown before the label, e.g. "Claude" / "GPT". */
+	vendor: string;
+	label: string;
+	blurb: string;
+}
+
+export const CHAT_MODELS: ReadonlyArray<ChatModelMeta> = [
+	{
+		id: 'claude-opus-4-8',
+		provider: 'anthropic',
+		vendor: 'Claude',
+		label: 'Opus 4.8',
+		blurb: 'Most capable'
+	},
+	{
+		id: 'claude-sonnet-4-6',
+		provider: 'anthropic',
+		vendor: 'Claude',
+		label: 'Sonnet 4.6',
+		blurb: 'Balanced'
+	},
+	{
+		id: 'claude-haiku-4-5-20251001',
+		provider: 'anthropic',
+		vendor: 'Claude',
+		label: 'Haiku 4.5',
+		blurb: 'Fastest'
+	},
+	{
+		id: 'gpt-5-codex',
+		provider: 'openai',
+		vendor: 'OpenAI',
+		label: 'GPT-5 Codex',
+		blurb: 'Agentic coding'
+	},
+	{ id: 'gpt-5', provider: 'openai', vendor: 'OpenAI', label: 'GPT-5', blurb: 'General purpose' }
 ];
 
 export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-4-6';
+
+/** Metadata for a model id (falls back to the first model for unknown ids). */
+export function modelMeta(id: ChatModel): ChatModelMeta {
+	return CHAT_MODELS.find((m) => m.id === id) ?? CHAT_MODELS[0];
+}
+
+/** Which provider a model belongs to. */
+export function providerOf(id: ChatModel): ChatProvider {
+	return modelMeta(id).provider;
+}
+
+/** The default (first-listed) model for a provider. */
+export function defaultModelForProvider(provider: ChatProvider): ChatModel {
+	return (CHAT_MODELS.find((m) => m.provider === provider) ?? CHAT_MODELS[0]).id;
+}
+
+/** Which providers have a detected local CLI login ("licence"). */
+export type ProviderAvailability = Record<ChatProvider, boolean>;
 
 export const ChatRequestSchema = z.object({
 	tripSlug: z.string().nullable(),
@@ -409,7 +507,11 @@ export const ChatRequestSchema = z.object({
 	model: ChatModelSchema.optional(),
 	// Session to resume. Absent → a brand-new conversation is created. The client
 	// learns the id from the `session` SSE event and sends it on follow-up turns.
-	sessionId: z.string().optional()
+	sessionId: z.string().optional(),
+	// Force a brand-new conversation even on a trip page. Without this, a trip-scoped
+	// turn with no sessionId resumes the trip's latest thread (getOrCreateChat) — which
+	// is wrong when the user explicitly started a "New chat".
+	newChat: z.boolean().optional()
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

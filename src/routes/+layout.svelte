@@ -3,7 +3,9 @@
 	import { AppSidebar, CommandPalette } from '$lib/essentials';
 	import { Sidebar, Tooltip, Toaster, Separator, Button, Breadcrumb } from '$lib/components';
 	import { themeStore, aiPanelStore, modelStore, commandPaletteStore } from '$lib/stores';
-	import { listTrips } from '$lib/remote/trips.remote';
+	import { useQuery, setupConvex } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import { page } from '$app/state';
 	import { Moon, Sun, Sparkles, Search } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -13,18 +15,22 @@
 
 	let { children, data } = $props();
 
+	// One Convex client for the whole app; child components subscribe via useQuery.
+	setupConvex(PUBLIC_CONVEX_URL);
+
 	const viewerMode = $derived(data.viewerMode ?? false);
 
 	onMount(() => {
 		themeStore.init();
 		aiPanelStore.init();
 		modelStore.init();
+		modelStore.applyAvailability(data.providerAvailability ?? { anthropic: true, openai: true });
 	});
 
-	const tripsQuery = listTrips({});
+	const tripsQuery = useQuery(api.trips.listTrips, {});
 	const tripSlug = $derived(page.params.slug);
 	const currentTrip = $derived<Trip | undefined>(
-		tripSlug ? (tripsQuery.current ?? []).find((t) => t.slug === tripSlug) : undefined
+		tripSlug ? ((tripsQuery.data ?? []) as Trip[]).find((t) => t.slug === tripSlug) : undefined
 	);
 
 	// The standalone agent workspace is itself a full chat surface — don't also

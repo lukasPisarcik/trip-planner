@@ -4,8 +4,10 @@
 	import type { TurnItem } from '$lib/stores';
 	import ThinkingBlock from './ThinkingBlock.svelte';
 	import ToolCall from './ToolCall.svelte';
+	import QuestionForm from './QuestionForm.svelte';
 
-	let { item }: { item: TurnItem } = $props();
+	let { item, onsubmitQuestions }: { item: TurnItem; onsubmitQuestions?: (text: string) => void } =
+		$props();
 
 	const html = $derived(
 		item.kind === 'assistant' && item.text ? (marked.parse(item.text) as string) : ''
@@ -16,6 +18,8 @@
 	<ThinkingBlock {item} />
 {:else if item.kind === 'tool'}
 	<ToolCall {item} />
+{:else if item.kind === 'questions'}
+	<QuestionForm {item} onsubmit={onsubmitQuestions} />
 {:else if item.kind === 'user'}
 	<!-- User turns get a soft-pink bubble (the ⌘E badge color) so they stand
 	     apart from the bare assistant replies. -->

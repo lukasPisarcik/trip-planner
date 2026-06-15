@@ -1,7 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { log, ChatRequestSchema } from '$lib';
-import type { ChatMessage } from '$lib/schemas';
+import {
+	type ChatMessage,
+	type ChatProvider,
+	AskUserPayloadSchema,
+	providerOf
+} from '$lib/schemas';
 import { formatTool } from '$lib/ai/formatTool';
 import * as chatsService from '$lib/server/services/chats.service';
 import { isViewerMode } from '$lib/server/env.server';
@@ -12,7 +17,7 @@ function sseEvent(data: unknown): Uint8Array {
 	return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, url }) => {
 	// Read-only public deployment: the co-pilot is disabled. Bail before importing
 	// the agent — it spawns the Claude Code CLI, which can't run on serverless.
 	if (isViewerMode()) throw error(404, 'Not found');
@@ -25,7 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(400, 'Invalid request body');
 	}
 
-	const { tripSlug, message, model, sessionId } = parsed.data;
+	const { tripSlug, message, model, sessionId, newChat } = parsed.data;
 	log.info(
 		{ reqId, tripSlug, model, sessionId, messageChars: message.length },
 		'Chat request: validated'
@@ -35,13 +40,28 @@ export const POST: RequestHandler = async ({ request }) => {
 	// or start a brand-new conversation for "new trip" turns.
 	let chat = sessionId ? await chatsService.getChatBySession(sessionId) : null;
 	if (!chat) {
-		chat = tripSlug
-			? await chatsService.getOrCreateChat(tripSlug)
-			: await chatsService.createChat(null);
+		// `newChat` (explicit "New chat" / "New conversation") always starts fresh.
+		// Otherwise a trip-scoped turn resumes that trip's latest thread.
+		chat = newChat
+			? await chatsService.createChat(tripSlug)
+			: tripSlug
+				? await chatsService.getOrCreateChat(tripSlug)
+				: await chatsService.createChat(null);
 	}
 	const isResume = chat.messages.length > 0;
+	// Only resume the provider-native thread when the same provider owns it; a
+	// provider switch starts a fresh thread (the visible message history persists).
+	const turnProvider: ChatProvider = model ? providerOf(model) : 'anthropic';
+	const canResume = isResume && (chat.provider ?? 'anthropic') === turnProvider;
 	log.info(
-		{ reqId, sessionId: chat.sessionId, isResume, existingMessages: chat.messages.length },
+		{
+			reqId,
+			sessionId: chat.sessionId,
+			isResume,
+			canResume,
+			turnProvider,
+			existingMessages: chat.messages.length
+		},
 		'Chat request: chat record ready'
 	);
 
@@ -82,11 +102,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			// `error` message in finalize() so a reload shows what went wrong rather
 			// than a dangling, unanswered user message.
 			let turnError: string | null = null;
-			// Token footprint of the most recent API call (the conversation's current
-			// context occupancy). `result.modelUsage` is cumulative across the whole
-			// agentic turn, so it overcounts — the last assistant message's input is
-			// the real "how full is the window" figure.
-			let lastUsedTokens = 0;
+			// Provider + native thread id learned this turn (via the `thread-id` event),
+			// persisted in finalize() so the next turn resumes with the right SDK.
+			let capturedProvider: ChatProvider = turnProvider;
+			let capturedThreadId: string | null = null;
 
 			// Live thinking block being accumulated (a turn can have several,
 			// interleaved with tool calls). Flushed into newMessages on stop.
@@ -136,131 +155,159 @@ export const POST: RequestHandler = async ({ request }) => {
 					if (!tripSlug && activeTripSlug && activeTripSlug !== tripSlug) {
 						await chatsService.setTripSlug(chat.sessionId, activeTripSlug);
 					}
+					// Persist the provider + native thread id when it changed, so the next
+					// turn resumes the right thread (skips redundant writes in steady state).
+					if (
+						capturedThreadId &&
+						(capturedThreadId !== chat.providerThreadId ||
+							(chat.provider ?? 'anthropic') !== capturedProvider)
+					) {
+						await chatsService.setProviderThread(
+							chat.sessionId,
+							capturedProvider,
+							capturedThreadId
+						);
+					}
 				} catch (e) {
 					log.error({ err: e }, 'Failed to persist chat messages');
 				}
 			};
 
 			try {
-				for await (const msg of runAgentTurn({
+				for await (const ev of runAgentTurn({
 					tripSlug,
 					sessionId: chat.sessionId,
-					resume: isResume,
+					resume: canResume,
 					message,
 					model,
-					signal: abortCtrl.signal
+					signal: abortCtrl.signal,
+					codexThreadId: chat.providerThreadId ?? null,
+					mcpBaseUrl: url.origin
 				})) {
-					if (msg.type === 'stream_event') {
-						const ev = msg.event;
-						if (ev.type === 'content_block_delta') {
-							if (ev.delta?.type === 'text_delta') {
-								// Text begins → the thinking block (if any) is done.
-								flushThinking();
-								if (!assistantStarted) {
-									assistantStarted = true;
-									controller.enqueue(sseEvent({ type: 'message-start', id: assistantId }));
-								}
-								assistantText += ev.delta.text;
-								controller.enqueue(sseEvent({ type: 'text-delta', delta: ev.delta.text }));
-							} else if (ev.delta?.type === 'thinking_delta') {
-								if (!thinkingActive) {
-									thinkingActive = true;
-									controller.enqueue(sseEvent({ type: 'thinking-start' }));
-								}
-								thinkingText += ev.delta.thinking;
-								controller.enqueue(sseEvent({ type: 'thinking-delta', delta: ev.delta.thinking }));
+					switch (ev.type) {
+						case 'thread-id':
+							// Provider + native resume id learned this turn; persisted in finalize().
+							capturedProvider = ev.provider;
+							capturedThreadId = ev.id;
+							break;
+
+						case 'thinking-start':
+							if (!thinkingActive) {
+								thinkingActive = true;
+								controller.enqueue(sseEvent({ type: 'thinking-start' }));
 							}
-						}
-					} else if (msg.type === 'assistant') {
-						if (msg.error === 'authentication_failed') {
-							controller.enqueue(sseEvent({ type: 'error', kind: 'auth_required' }));
+							break;
+
+						case 'thinking-delta':
+							thinkingText += ev.delta;
+							controller.enqueue(sseEvent({ type: 'thinking-delta', delta: ev.delta }));
+							break;
+
+						case 'thinking-stop':
+							flushThinking();
+							break;
+
+						case 'text-start':
+						case 'text-delta':
+							// Text begins → the thinking block (if any) is done.
+							flushThinking();
+							if (!assistantStarted) {
+								assistantStarted = true;
+								controller.enqueue(sseEvent({ type: 'message-start', id: assistantId }));
+							}
+							if (ev.type === 'text-delta') {
+								assistantText += ev.delta;
+								controller.enqueue(sseEvent({ type: 'text-delta', delta: ev.delta }));
+							}
+							break;
+
+						case 'tool-pending': {
+							// Surface a "working" indicator immediately instead of a dead pause.
+							flushThinking();
+							const display = formatTool(ev.name, {});
+							controller.enqueue(
+								sseEvent({
+									type: 'tool-pending',
+									id: ev.id,
+									name: ev.name,
+									icon: display.icon,
+									pending: display.pending
+								})
+							);
 							break;
 						}
-						// Track the latest prompt size (history + cached context + this
-						// reply) as the conversation's current context footprint.
-						const u = msg.message.usage;
-						if (u) {
-							lastUsedTokens =
-								(u.input_tokens ?? 0) +
-								(u.cache_read_input_tokens ?? 0) +
-								(u.cache_creation_input_tokens ?? 0) +
-								(u.output_tokens ?? 0);
-						}
-						// Tool uses arrive on the final assistant message. A tool means
-						// any open thinking block has ended.
-						for (const block of msg.message.content) {
-							if (block.type === 'tool_use') {
-								flushThinking();
-								const name = block.name.replace(/^mcp__trip-planner__/, '');
-								const display = formatTool(name, block.input);
-								controller.enqueue(
-									sseEvent({
-										type: 'tool-call',
-										id: block.id,
-										name,
-										icon: display.icon,
-										label: display.label,
-										pending: display.pending,
-										detail: display.detail
-									})
-								);
-								// Track newly-created trip so we can link the chat to it, and
-								// tell the client so it can surface a "View your trip" link.
-								if (name === 'create_trip') {
-									const input = block.input as Record<string, unknown>;
-									if (typeof input.slug === 'string') {
-										activeTripSlug = input.slug;
-										controller.enqueue(sseEvent({ type: 'trip-created', slug: input.slug }));
-									}
+
+						case 'tool-call': {
+							flushThinking();
+							// `ask_user` is rendered as an interactive form, not a tool chip.
+							if (ev.name === 'ask_user') {
+								const parsed = AskUserPayloadSchema.safeParse(ev.input);
+								if (parsed.success) {
+									const qId = crypto.randomUUID();
+									controller.enqueue(sseEvent({ type: 'ask-user', id: qId, payload: parsed.data }));
+									newMessages.push({
+										id: qId,
+										role: 'questions',
+										content: parsed.data.intro ?? 'A few quick questions',
+										questions: parsed.data,
+										createdAt: Date.now()
+									});
+									break;
 								}
-								newMessages.push({
-									id: crypto.randomUUID(),
-									role: 'tool',
-									toolName: name,
-									content: display.label,
-									detail: display.detail,
-									createdAt: Date.now()
-								});
+								// invalid payload → fall through to render it as a normal tool chip
 							}
-						}
-					} else if (msg.type === 'user') {
-						// Tool results — emit a tool-result event for visibility.
-						const content = msg.message.content;
-						if (Array.isArray(content)) {
-							for (const block of content) {
-								if (
-									typeof block === 'object' &&
-									block &&
-									(block as { type?: string }).type === 'tool_result'
-								) {
-									const result = block as { tool_use_id?: string; is_error?: boolean };
-									controller.enqueue(
-										sseEvent({
-											type: 'tool-result',
-											id: result.tool_use_id,
-											isError: result.is_error ?? false
-										})
-									);
+							const display = formatTool(ev.name, ev.input);
+							controller.enqueue(
+								sseEvent({
+									type: 'tool-call',
+									id: ev.id,
+									name: ev.name,
+									icon: display.icon,
+									label: display.label,
+									pending: display.pending,
+									detail: display.detail
+								})
+							);
+							// Track newly-created trip so we can link the chat to it, and tell
+							// the client so it can surface a "View your trip" link.
+							if (ev.name === 'create_trip') {
+								const input = ev.input as Record<string, unknown>;
+								if (typeof input.slug === 'string') {
+									activeTripSlug = input.slug;
+									controller.enqueue(sseEvent({ type: 'trip-created', slug: input.slug }));
 								}
 							}
+							newMessages.push({
+								id: crypto.randomUUID(),
+								role: 'tool',
+								toolName: ev.name,
+								content: display.label,
+								detail: display.detail,
+								createdAt: Date.now()
+							});
+							break;
 						}
-					} else if (msg.type === 'result') {
-						// Surface context usage: footprint from the last assistant turn,
-						// window size from the SDK's per-model accounting.
-						const total = Math.max(
-							0,
-							...Object.values(msg.modelUsage ?? {}).map((m) => m.contextWindow ?? 0)
-						);
-						if (lastUsedTokens > 0 && total > 0) {
-							controller.enqueue(sseEvent({ type: 'usage', used: lastUsedTokens, total }));
-						}
-						if (msg.subtype === 'error_max_turns' || msg.subtype === 'error_during_execution') {
+
+						case 'tool-result':
+							controller.enqueue(sseEvent({ type: 'tool-result', id: ev.id, isError: ev.isError }));
+							break;
+
+						case 'usage':
+							if (ev.used > 0 && ev.total > 0) {
+								controller.enqueue(sseEvent({ type: 'usage', used: ev.used, total: ev.total }));
+							}
+							break;
+
+						case 'auth-required':
+							controller.enqueue(sseEvent({ type: 'error', kind: 'auth_required' }));
+							break;
+
+						case 'turn-error':
 							turnError = 'agent_error';
 							controller.enqueue(
-								sseEvent({ type: 'error', kind: 'agent_error', subtype: msg.subtype })
+								sseEvent({ type: 'error', kind: 'agent_error', subtype: ev.subtype })
 							);
-						}
-						break;
+							break;
 					}
 				}
 			} catch (e) {
