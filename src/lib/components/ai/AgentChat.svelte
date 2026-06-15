@@ -4,7 +4,7 @@
 	import { toast } from '$lib';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components';
 	import { modelStore, createChatSession, messagesToItems } from '$lib/stores';
-	import type { ChatMessage } from '$lib/schemas';
+	import { providerOf, type ChatMessage } from '$lib/schemas';
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
 	import EmptyState from './EmptyState.svelte';
@@ -28,6 +28,14 @@
 	const session = createChatSession();
 
 	const items = $derived([...messagesToItems(history), ...session.items]);
+
+	// Which provider's login the auth-required alert should point at (the active model's).
+	const authProvider = $derived(providerOf(modelStore.current));
+
+	// The floating bottom bar (composer + optional "trip ready" card) overlays the
+	// message list. Measure its height so the scroll area reserves exactly enough
+	// bottom padding — otherwise the banner covers the tail of the last message.
+	let barHeight = $state(0);
 
 	// Surface failures as a transient toast (the inline Alert is the persistent
 	// state). Fire once per distinct error object so retries re-notify.
@@ -63,6 +71,9 @@
 			tripSlug,
 			model: modelStore.forMode(mode),
 			sessionId,
+			// No session to resume → this is a fresh conversation; create a new chat
+			// rather than resuming the trip's latest thread.
+			forceNew: !sessionId && !session.lastSessionId,
 			onDone: async () => {
 				// When the agent planned a trip, keep the thread + "view trip" card on
 				// screen — the card is the next step, so we don't navigate or clear.
@@ -90,7 +101,9 @@
 				streaming={session.streaming}
 				status={session.status}
 				statusLabel={session.statusLabel}
-				class="mx-auto w-full max-w-[760px] px-4 pt-20 pb-36"
+				class="mx-auto w-full max-w-[760px] px-4 pt-20"
+				style="padding-bottom: {barHeight + 16}px"
+				onsubmitQuestions={(text) => send(text)}
 			/>
 		{/if}
 	</div>
@@ -100,10 +113,17 @@
 			<div class="pointer-events-auto mx-auto mt-3 w-full max-w-[760px] px-4">
 				{#if session.authRequired}
 					<Alert variant="destructive">
-						<AlertTitle>Claude Code not signed in</AlertTitle>
-						<AlertDescription>
-							Run <code>claude login</code> in your terminal and reload the page.
-						</AlertDescription>
+						{#if authProvider === 'openai'}
+							<AlertTitle>Codex not signed in</AlertTitle>
+							<AlertDescription>
+								Run <code>codex login</code> in your terminal and reload the page.
+							</AlertDescription>
+						{:else}
+							<AlertTitle>Claude Code not signed in</AlertTitle>
+							<AlertDescription>
+								Run <code>claude login</code> in your terminal and reload the page.
+							</AlertDescription>
+						{/if}
 					</Alert>
 				{:else if session.error}
 					<Alert variant="destructive">
@@ -124,7 +144,10 @@
 	<!-- Floating frosted bar: messages dissolve into it as they scroll under. -->
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
 		<div class="h-6 bg-gradient-to-t from-background/70 to-transparent"></div>
-		<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
+		<div
+			bind:clientHeight={barHeight}
+			class="pointer-events-auto bg-background/70 backdrop-blur-md"
+		>
 			<div class="mx-auto w-full max-w-[760px]">
 				{#if session.createdTripSlug}
 					<div class="px-4 pt-3">
@@ -151,7 +174,7 @@
 					onsend={send}
 					onstop={() => session.stop()}
 					streaming={session.streaming}
-					disabled={session.authRequired}
+					disabled={session.authRequired || !modelStore.hasAnyProvider}
 					usage={session.usage}
 					showModel
 					placeholder={mode === 'edit-trip'

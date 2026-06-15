@@ -11,6 +11,14 @@ import { z } from 'zod';
 const PrivateEnvSchema = z.object({
 	ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-4-6'),
 	CLAUDE_CODE_PATH: z.string().min(1).optional(),
+	// OpenAI/Codex co-pilot. OPENAI_MODEL is the fallback Codex model; CODEX_PATH
+	// optionally points at the `codex` CLI binary if it isn't on PATH (mirrors
+	// CLAUDE_CODE_PATH). MCP_BRIDGE_SECRET is a bearer token the Codex agent sends
+	// to the in-app trip-tools MCP endpoint (/api/mcp/trip-planner); the SDK and the
+	// route share it so only this server's Codex subprocess can reach the tools.
+	OPENAI_MODEL: z.string().min(1).default('gpt-5-codex'),
+	CODEX_PATH: z.string().min(1).optional(),
+	MCP_BRIDGE_SECRET: z.string().min(1).optional(),
 	// Agent turn watchdog (see src/lib/server/ai/agent.ts). A turn is aborted if
 	// the SDK emits no message for STALL ms (a stalled API stream), or if total
 	// runtime exceeds MAX ms. Coerced from strings since env values are strings.
@@ -19,9 +27,16 @@ const PrivateEnvSchema = z.object({
 	// legitimately run past 5 minutes; 300s was aborting them mid-build before
 	// `create_trip` ever fired. 10 minutes gives them room to finish.
 	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(600_000),
-	// Read-only public deployment switch (e.g. Vercel). When `true`, the app
-	// serves trips from the committed snapshot, blocks all writes, and hides
-	// the AI co-pilot. Defaults to off so local development is unaffected.
+	// Convex deployment URL for server-side reads (SSR + the AI agent) and writes.
+	// Same deployment as PUBLIC_CONVEX_URL, which the browser uses for reactive reads.
+	CONVEX_URL: z.string().url(),
+	// Owner write-secret: the trusted (local) server sends it with every Convex
+	// mutation. The public read-only deployment is deliberately NOT given it, so it
+	// cannot write. Optional here so that read-only deployment still boots.
+	OWNER_WRITE_SECRET: z.string().min(1).optional(),
+	// Read-only public deployment switch (e.g. Vercel). When `true`, the app blocks
+	// all writes and hides the AI co-pilot. Reads come live from Convex either way.
+	// Defaults to off so local development is unaffected.
 	VIEWER_MODE: z
 		.string()
 		.optional()

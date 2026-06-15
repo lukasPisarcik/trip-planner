@@ -1,22 +1,20 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { listTrips } from '$lib/remote/trips.remote';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
 	import type { Trip } from '$lib/trips';
 	import { Trash2 } from '@lucide/svelte';
 	import DeleteTripConfirm from '$lib/components/trip/DeleteTripConfirm.svelte';
 
-	const tripsQuery = listTrips({});
-	const trips = $derived<Trip[]>(tripsQuery.current ?? []);
+	// Reactive: the grid live-updates when trips change in Convex (no manual refresh).
+	const tripsQuery = useQuery(api.trips.listTrips, {});
+	const trips = $derived<Trip[]>((tripsQuery.data ?? []) as Trip[]);
 
 	const viewerMode = $derived(page.data.viewerMode ?? false);
 
 	let confirmSlug = $state<string | null>(null);
 	const confirmTrip = $derived(trips.find((t) => t.slug === confirmSlug) ?? null);
-
-	async function onDeleted() {
-		await tripsQuery.refresh();
-	}
 
 	function cardStyle(accent: Trip['accent']) {
 		return [
@@ -82,11 +80,7 @@
 </div>
 
 {#if !viewerMode}
-	<DeleteTripConfirm
-		trip={confirmTrip}
-		onclose={() => (confirmSlug = null)}
-		ondeleted={onDeleted}
-	/>
+	<DeleteTripConfirm trip={confirmTrip} onclose={() => (confirmSlug = null)} ondeleted={() => {}} />
 {/if}
 
 <style>

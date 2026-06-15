@@ -1,11 +1,9 @@
-import { command, query } from '$app/server';
-import { EmptyInput, CreateFolderInput, RenameFolderInput, FolderIdInput } from '$lib/schemas';
+import { command } from '$app/server';
+import { CreateFolderInput, RenameFolderInput, FolderIdInput } from '$lib/schemas';
 import * as foldersService from '$lib/server/services/folders.service';
 
-export const listFolders = query(EmptyInput, async () => {
-	return foldersService.listFolders();
-});
-
+// Folder reads are served reactively to the client via convex-svelte `useQuery`
+// (api.folders.listFolders).
 export const createFolder = command(CreateFolderInput, async ({ name }) => {
 	const id = await foldersService.createFolder(name);
 	return { id } as const;

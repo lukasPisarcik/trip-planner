@@ -49,5 +49,6 @@ src/lib/trips/local/
 /cypress/downloads
 server-results.xml
 browser-results.xml
+.playwright-mcp/
 
 # other

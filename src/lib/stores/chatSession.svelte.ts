@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatModel } from '$lib/schemas';
+import type { ChatMessage, ChatModel, AskUserPayload } from '$lib/schemas';
 import { formatTool } from '$lib/ai/formatTool';
 import { chatActivityStore } from './chatActivityStore.svelte';
 
@@ -19,14 +19,25 @@ export type TurnItem =
 			label: string;
 			detail?: string;
 			status: 'running' | 'done' | 'error';
-	  };
+	  }
+	| { kind: 'questions'; id: string; payload: AskUserPayload; answered: boolean };
 
 export type ChatStatus = 'idle' | 'thinking' | 'tool' | 'responding' | 'error';
 
 /** Project persisted chat history into renderable items. */
 export function messagesToItems(messages: ChatMessage[]): TurnItem[] {
-	return messages.map((m): TurnItem => {
+	return messages.map((m, i): TurnItem => {
 		switch (m.role) {
+			case 'questions':
+				return {
+					kind: 'questions',
+					id: m.id,
+					payload: m.questions ?? { questions: [] },
+					// Answered only once the USER replies (their answers are a later `user`
+					// message). The agent's own closing line after ask_user is an `assistant`
+					// message and must NOT mark the form answered.
+					answered: messages.slice(i + 1).some((n) => n.role === 'user')
+				};
 			case 'thinking':
 				return { kind: 'thinking', id: m.id, text: m.content, active: false };
 			case 'tool':
@@ -54,6 +65,8 @@ export interface SendOptions {
 	model?: ChatModel;
 	/** Session to resume. Falls back to the id learned from the last turn. */
 	sessionId?: string | null;
+	/** Force a brand-new conversation (explicit "New chat"), bypassing trip-thread resume. */
+	forceNew?: boolean;
 	/** Run after the turn settles (e.g. refresh persisted history, then reset()). */
 	onDone?: () => void | Promise<void>;
 }
@@ -131,7 +144,8 @@ export class ChatSession {
 					tripSlug: opts.tripSlug,
 					message: text,
 					model: opts.model,
-					sessionId: resumeId
+					sessionId: resumeId,
+					newChat: opts.forceNew || undefined
 				}),
 				signal: controller.signal
 			});
@@ -246,6 +260,27 @@ export class ChatSession {
 							if (target && target.kind === 'tool') target.status = ev.isError ? 'error' : 'done';
 							break;
 						}
+						case 'tool-pending': {
+							// The model started a tool call; its input is still streaming (no text),
+							// which can take a while. Show a working indicator now — the real
+							// `tool-call` (with the chip) reconciles it when the input finishes.
+							this.status = 'tool';
+							this.statusLabel = String(ev.pending ?? 'Working…');
+							break;
+						}
+						case 'ask-user': {
+							this.items.push({
+								kind: 'questions',
+								id: String(ev.id ?? crypto.randomUUID()),
+								payload: ev.payload as AskUserPayload,
+								answered: false
+							});
+							// The agent handed control to the user — stop the working indicator.
+							this.status = 'idle';
+							this.statusLabel = '';
+							assistantIdx = null;
+							break;
+						}
 						case 'usage': {
 							const used = Number(ev.used);
 							const total = Number(ev.total);
@@ -277,6 +312,9 @@ export class ChatSession {
 		} finally {
 			// Turn settled — clear the live "Working…" indicator for this session.
 			chatActivityStore.stop(this.lastSessionId ?? resumeId ?? null);
+			// The chat set changed (new session and/or appended messages are now
+			// persisted) — signal chat lists to refresh without a page reload.
+			chatActivityStore.bump();
 			// Close out any thinking block left open by an abort/error.
 			if (thinkingIdx !== null) {
 				const item = this.items[thinkingIdx];

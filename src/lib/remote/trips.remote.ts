@@ -1,11 +1,6 @@
 import { z } from 'zod';
-import { command, query } from '$app/server';
-import {
-	EmptyInput,
-	TripSchema,
-	TripHeadlinePatchSchema,
-	MoveTripToFolderInput
-} from '$lib/schemas';
+import { command } from '$app/server';
+import { TripSchema, TripHeadlinePatchSchema, MoveTripToFolderInput } from '$lib/schemas';
 import * as tripsService from '$lib/server/services/trips.service';
 
 const SlugInput = z.object({ slug: z.string().min(1) });
@@ -25,14 +20,8 @@ const SetTripFavoriteInput = z.object({
 	favorite: z.boolean()
 });
 
-export const listTrips = query(EmptyInput, async () => {
-	return tripsService.listTrips();
-});
-
-export const getTrip = query(SlugInput, async ({ slug }) => {
-	return tripsService.getTrip(slug);
-});
-
+// Reads are served reactively to the client via convex-svelte `useQuery`
+// (api.trips.*); the server still reads through the service for SSR / the AI agent.
 export const createTrip = command(TripSchema, async (input) => {
 	return tripsService.createTrip(input);
 });

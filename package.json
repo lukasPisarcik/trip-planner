@@ -5,9 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bunx --bun vite dev",
+		"dev:convex": "bunx convex dev",
 		"build": "bunx --bun vite build",
 		"preview": "bunx --bun vite preview",
-		"snapshot": "bun run scripts/snapshot.ts",
 		"prepare": "bunx svelte-kit sync",
 		"check": "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json --watch",
@@ -22,8 +22,12 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.141",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@openai/codex-sdk": "^0.139.0",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
+		"convex": "^1.38.0",
+		"convex-svelte": "^0.13.0",
 		"leaflet": "^1.9.4",
 		"marked": "^18.0.3",
 		"pino": "^10.3.1",

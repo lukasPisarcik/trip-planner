@@ -3,8 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Command, Dialog } from '$lib/components';
-	import { commandPaletteStore } from '$lib/stores';
-	import { listTrips } from '$lib/remote/trips.remote';
+	import { commandPaletteStore, chatActivityStore } from '$lib/stores';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
 	import { listChats } from '$lib/remote/chats.remote';
 	import { House, Sparkles, MessageSquare } from '@lucide/svelte';
 	import type { Trip } from '$lib/trips';
@@ -19,11 +20,17 @@
 
 	const viewerMode = $derived(page.data.viewerMode ?? false);
 
-	const tripsQuery = listTrips({});
-	const trips = $derived<Trip[]>(tripsQuery.current ?? []);
+	const tripsQuery = useQuery(api.trips.listTrips, {});
+	const trips = $derived<Trip[]>((tripsQuery.data ?? []) as Trip[]);
 
+	// Chats stay server-mediated (private) — point-in-time read, refreshed on the
+	// chats-changed signal so newly created sessions show up without a reload.
 	const chatsQuery = listChats({});
 	const sessions = $derived<SessionRecord[]>(chatsQuery.current ?? []);
+	$effect(() => {
+		void chatActivityStore.version;
+		chatsQuery.refresh();
+	});
 
 	let search = $state('');
 	const isEmpty = $derived(search.trim() === '');

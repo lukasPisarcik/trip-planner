@@ -47,6 +47,7 @@ export default defineConfig(
 	{
 		// Generated/managed code — not edited by hand, not actionable.
 		// - shadcn-svelte primitives: written by the CLI
-		ignores: ['src/lib/components/ui/**']
+		// - Convex _generated: written by `bunx convex dev`
+		ignores: ['src/lib/components/ui/**', 'src/convex/_generated/**']
 	}
 );

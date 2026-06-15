@@ -8,6 +8,16 @@
 class ChatActivityStoreClass {
 	streamingSessionId = $state<string | null>(null);
 
+	/**
+	 * Monotonic counter bumped whenever the set of chats changes (a session is
+	 * created or a turn persists new messages). Chat lists are read through the
+	 * non-reactive `listChats` remote query, so surfaces (sidebar, command palette,
+	 * AI panel) watch this in an `$effect` and call `.refresh()` to stay live
+	 * without a page reload. Chats stay server-mediated for privacy, so this is the
+	 * reactivity bridge instead of a public Convex subscription.
+	 */
+	version = $state(0);
+
 	start(id: string | null | undefined): void {
 		if (id) this.streamingSessionId = id;
 	}
@@ -18,6 +28,11 @@ class ChatActivityStoreClass {
 
 	isStreaming(id: string | null | undefined): boolean {
 		return !!id && this.streamingSessionId === id;
+	}
+
+	/** Signal that the chat set changed so chat lists refresh. */
+	bump(): void {
+		this.version++;
 	}
 }
 

@@ -13,6 +13,9 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		alias: {
+			$convex: 'src/convex'
+		},
 		experimental: {
 			remoteFunctions: true
 		}

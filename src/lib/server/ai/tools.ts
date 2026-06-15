@@ -10,7 +10,8 @@ import {
 	FlightsTabSchema,
 	BudgetTabSchema,
 	TipsTabSchema,
-	RestaurantsTabSchema
+	RestaurantsTabSchema,
+	AskUserPayloadSchema
 } from '$lib/schemas';
 import * as tripsService from '../services/trips.service';
 
@@ -51,9 +52,32 @@ const updateTripFieldsTool = tool(
 	}
 );
 
+const askUserTool = tool(
+	'ask_user',
+	'Ask the traveler a batch of clarifying questions BEFORE planning — shown as an interactive ' +
+		'in-chat form. Use single-select and multi-select questions with good preset options (and ' +
+		'free-text only where options cannot capture the answer). After calling this tool you MUST end ' +
+		'your turn immediately and wait — the user answers via the form and their answers arrive as the ' +
+		'next message. Do NOT call any other tool in the same turn.',
+	AskUserPayloadSchema.shape,
+	async (args) => {
+		for (const q of args.questions) {
+			if ((q.kind === 'single' || q.kind === 'multi') && !q.options?.length) {
+				return err(`Question "${q.id}" is ${q.kind} but has no options.`);
+			}
+		}
+		return ok(
+			'Questions presented to the traveler in an interactive form. They will reply with their ' +
+				'answers as the next message. End your turn now — do not call more tools and do not keep talking.'
+		);
+	}
+);
+
 const createTripTool = tool(
 	'create_trip',
-	'Create a brand-new trip. Provide the full Trip object. Slug must be unique.',
+	'Create a brand-new trip. Provide the full Trip object. Slug must be unique. Populate viral-spot ' +
+		'and restaurant `image` fields with real, hotlinkable photo URLs (prefer Wikimedia/Wikipedia), ' +
+		'and set every restaurant `mapUrl` to a Google Maps search link.',
 	TripSchema.shape,
 	async (args) => {
 		try {
@@ -96,7 +120,9 @@ const replaceTransportTool = tool(
 
 const replaceViralTool = tool(
 	'replace_viral',
-	'Replace the entire viral-spots tab payload.',
+	'Replace the entire viral-spots tab payload. For each spot, include a real, hotlinkable `image` ' +
+		'where one exists (prefer commons.wikimedia.org / Wikipedia upload URLs; add a concise `alt` and ' +
+		'a `credit`; omit `image` entirely if no reliable photo is found — never invent a URL).',
 	{ slug: z.string(), payload: ViralTabSchema },
 	async ({ slug, payload }) => {
 		try {
@@ -152,7 +178,7 @@ const replaceTipsTool = tool(
 
 const replaceRestaurantsTool = tool(
 	'replace_restaurants',
-	'Replace the entire food & drink tab payload (callout + cities of restaurants, coffee shops & bars + note). Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks and nice coffee shops and bars, not only restaurants.',
+	'Replace the entire food & drink tab payload (callout + cities of restaurants, coffee shops & bars + note). Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks and nice coffee shops and bars, not only restaurants. Set every place `mapUrl` to a Google Maps search link (https://www.google.com/maps/search/?api=1&query=<URL-encoded "Name, City">), and include a real, hotlinkable `image` where available (prefer Wikimedia/Wikipedia; add alt + credit; omit if none found).',
 	{ slug: z.string(), payload: RestaurantsTabSchema },
 	async ({ slug, payload }) => {
 		try {
@@ -166,6 +192,7 @@ const replaceRestaurantsTool = tool(
 
 export const tripToolDefs = [
 	getTripTool,
+	askUserTool,
 	updateTripFieldsTool,
 	createTripTool,
 	replaceItineraryTool,
