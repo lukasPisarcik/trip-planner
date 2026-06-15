@@ -29,6 +29,10 @@ export async function getChatForTrip(tripSlug: string | null): Promise<ChatRecor
 	// file-store (unavailable on Vercel's Node runtime). Short-circuit before any
 	// store access so the panel — which isn't rendered there anyway — stays inert.
 	if (isViewerMode()) return null;
+	// "New trip" mode (null slug) always starts fresh — never resurrect the shared
+	// pool of unlinked null-slug threads (otherwise every new conversation reopens
+	// the last one). Real trips still resume their own thread.
+	if (tripSlug === null) return null;
 	const records = await chatsStore.read();
 	// Empty records belong to abandoned starts (or to a turn whose first
 	// request failed before any message persisted). Hide them from the
@@ -37,10 +41,31 @@ export async function getChatForTrip(tripSlug: string | null): Promise<ChatRecor
 	return latestNonEmptyForTripSlug(records, tripSlug);
 }
 
+export async function listAllChats(): Promise<ChatRecord[]> {
+	// Sidebar "AI sessions" list. Empty records are abandoned starts — hide them,
+	// same as getChatForTrip. Most-recently-updated first.
+	if (isViewerMode()) return [];
+	const records = await chatsStore.read();
+	return [...records]
+		.filter((r) => r.messages.length > 0)
+		.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function getChatBySession(sessionId: string): Promise<ChatRecord | null> {
+	if (isViewerMode()) return null;
+	const records = await chatsStore.read();
+	return records.find((r) => r.sessionId === sessionId) ?? null;
+}
+
 export async function getOrCreateChat(tripSlug: string | null): Promise<ChatRecord> {
 	const records = await chatsStore.read();
 	const existing = latestNonEmptyForTripSlug(records, tripSlug);
 	if (existing) return existing;
+	return createChat(tripSlug);
+}
+
+export async function createChat(tripSlug: string | null): Promise<ChatRecord> {
+	const records = await chatsStore.read();
 	// Drop stale empty records for this trip before creating a fresh one.
 	// Reusing their sessionId would collide with the CLI's session file
 	// from a previous failed turn and cause the subprocess to exit 1.
@@ -74,6 +99,14 @@ export async function appendMessages(sessionId: string, messages: ChatMessage[])
 		updatedAt: Date.now()
 	};
 	await chatsStore.write(next);
+}
+
+export async function deleteChat(sessionId: string): Promise<void> {
+	const records = await chatsStore.read();
+	const next = records.filter((r) => r.sessionId !== sessionId);
+	if (next.length === records.length) return; // nothing to delete — stay idempotent
+	await chatsStore.write(next);
+	log.info({ sessionId }, 'Deleted chat thread');
 }
 
 export async function setTripSlug(sessionId: string, tripSlug: string): Promise<void> {

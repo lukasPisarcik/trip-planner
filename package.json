@@ -27,6 +27,7 @@
 		"leaflet": "^1.9.4",
 		"marked": "^18.0.3",
 		"pino": "^10.3.1",
+		"svelte-dnd-action": "^0.9.70",
 		"tailwind-merge": "^3.6.0",
 		"tailwind-variants": "^3.2.2",
 		"zod": "^4.4.3"

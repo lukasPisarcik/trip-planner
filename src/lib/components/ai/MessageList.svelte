@@ -1,61 +1,71 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import type { ChatMessage } from '$lib/schemas';
+	import { cn } from '$lib/utils';
+	import type { TurnItem, ChatStatus } from '$lib/stores';
 	import Message from './Message.svelte';
 
-	let { messages, streaming = false }: { messages: ChatMessage[]; streaming?: boolean } = $props();
+	let {
+		items,
+		streaming = false,
+		status = 'idle',
+		statusLabel = '',
+		class: className = 'p-4'
+	}: {
+		items: TurnItem[];
+		streaming?: boolean;
+		status?: ChatStatus;
+		statusLabel?: string;
+		/** Padding / max-width / centering for the scroll container. */
+		class?: string;
+	} = $props();
 
 	let scrollEl = $state<HTMLDivElement | null>(null);
 
+	// Show the contextual status line only when there's no visible streaming text
+	// yet (thinking / running a tool). Once the assistant is writing, its bubble
+	// is the indicator. This replaces the old content-free "three dots".
+	const showStatus = $derived(
+		streaming && status !== 'responding' && status !== 'error' && !!statusLabel
+	);
+
 	$effect(() => {
-		// Re-run on every messages change.
-		void messages.length;
+		void items.length;
 		void streaming;
+		void statusLabel;
 		tick().then(() => {
 			if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
 		});
 	});
 </script>
 
-<div class="list" bind:this={scrollEl}>
-	{#each messages as m (m.id)}
-		<Message message={m} />
+<div
+	bind:this={scrollEl}
+	class={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto', className)}
+>
+	{#each items as item (item.id)}
+		<Message {item} />
 	{/each}
-	{#if streaming}
-		<div class="typing"><span></span><span></span><span></span></div>
+	{#if showStatus}
+		<div class="inline-flex w-fit items-center gap-2 text-[12.5px] text-muted-foreground">
+			<span class="dots inline-flex gap-1"><span></span><span></span><span></span></span>
+			<span>{statusLabel}</span>
+		</div>
 	{/if}
 </div>
 
 <style>
-	.list {
-		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
-		padding: 16px;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-	.typing {
-		display: inline-flex;
-		gap: 4px;
-		padding: 10px 14px;
-		background: hsl(var(--muted) / 0.45);
-		border-radius: 14px;
-		border-bottom-left-radius: 4px;
-		width: fit-content;
-	}
-	.typing span {
+	/* Typing dots — a staggered keyframe loop that has no Tailwind utility. */
+	.dots span {
 		width: 6px;
 		height: 6px;
-		border-radius: 50%;
+		border-radius: 9999px;
 		background: hsl(var(--muted-foreground));
 		animation: blink 1.2s infinite;
 	}
-	.typing span:nth-child(2) {
+	.dots span:nth-child(2) {
 		animation-delay: 0.2s;
 	}
-	.typing span:nth-child(3) {
+	.dots span:nth-child(3) {
 		animation-delay: 0.4s;
 	}
 	@keyframes blink {

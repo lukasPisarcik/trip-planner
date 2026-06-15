@@ -1,19 +1,42 @@
 <script lang="ts">
-	import { Button } from '$lib/components';
-	import { ArrowUp } from '@lucide/svelte';
+	import { ArrowUp, Square } from '@lucide/svelte';
+	import ModelSelect from './ModelSelect.svelte';
 
 	let {
 		onsend,
+		onstop,
+		streaming = false,
 		disabled = false,
+		showModel = false,
+		usage = null,
 		placeholder = 'Plan a trip…'
 	}: {
 		onsend: (text: string) => void;
+		onstop?: () => void;
+		streaming?: boolean;
 		disabled?: boolean;
+		showModel?: boolean;
+		/** Context-window footprint of the conversation so far (drives the gauge). */
+		usage?: { used: number; total: number } | null;
 		placeholder?: string;
 	} = $props();
 
 	let value = $state('');
 	let ta = $state<HTMLTextAreaElement | null>(null);
+
+	const canSend = $derived(value.trim().length > 0 && !disabled && !streaming);
+
+	// Context-usage ring geometry. stroke-dashoffset fills the circle clockwise.
+	const RING_CIRC = 2 * Math.PI * 7;
+	const usagePct = $derived(
+		usage ? Math.min(100, Math.round((usage.used / usage.total) * 100)) : 0
+	);
+
+	function fmtTokens(n: number): string {
+		if (n < 1000) return String(n);
+		const k = n / 1000;
+		return (k >= 100 ? Math.round(k) : Math.round(k * 10) / 10) + 'k';
+	}
 
 	function autoresize() {
 		if (!ta) return;
@@ -22,9 +45,8 @@
 	}
 
 	function send() {
-		const trimmed = value.trim();
-		if (!trimmed || disabled) return;
-		onsend(trimmed);
+		if (!canSend) return;
+		onsend(value.trim());
 		value = '';
 		queueMicrotask(autoresize);
 	}
@@ -40,61 +62,78 @@
 	}
 </script>
 
-<div class="composer">
-	<textarea
-		bind:this={ta}
-		bind:value
-		oninput={autoresize}
-		{onkeydown}
-		{placeholder}
-		{disabled}
-		rows="1"
-	></textarea>
-	<Button
-		variant="default"
-		size="icon"
-		class="send"
-		onclick={send}
-		disabled={disabled || value.trim().length === 0}
-		aria-label="Send"
+<div class="p-3">
+	<div
+		class="flex flex-col gap-2 rounded-2xl border bg-background px-2.5 pt-2.5 pb-2 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/15"
 	>
-		<ArrowUp class="size-4" />
-	</Button>
+		<textarea
+			bind:this={ta}
+			bind:value
+			oninput={autoresize}
+			{onkeydown}
+			{placeholder}
+			{disabled}
+			rows="1"
+			class="max-h-[200px] min-h-6 w-full resize-none border-0 bg-transparent px-1 py-0.5 [font-family:inherit] text-[13.5px] leading-normal text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
+		></textarea>
+		<div class="flex items-center gap-2">
+			{#if showModel}
+				<ModelSelect disabled={streaming} />
+			{/if}
+			<div class="flex-1"></div>
+			{#if usage}
+				<div
+					class="flex items-center gap-1 text-[11px] tabular-nums {usagePct >= 85
+						? 'text-destructive'
+						: 'text-muted-foreground'}"
+					title={`${fmtTokens(usage.used)} / ${fmtTokens(usage.total)} tokens`}
+				>
+					<svg viewBox="0 0 20 20" class="size-3.5 -rotate-90" aria-hidden="true">
+						<circle
+							cx="10"
+							cy="10"
+							r="7"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							class="text-border"
+						/>
+						<circle
+							cx="10"
+							cy="10"
+							r="7"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							class={usagePct >= 85 ? 'text-destructive' : 'text-primary'}
+							stroke-dasharray={RING_CIRC}
+							stroke-dashoffset={RING_CIRC * (1 - usagePct / 100)}
+						/>
+					</svg>
+					<span>{usagePct}%</span>
+				</div>
+			{/if}
+			{#if streaming}
+				<button
+					type="button"
+					class="inline-flex size-[30px] items-center justify-center rounded-full bg-muted text-foreground transition active:scale-95"
+					onclick={() => onstop?.()}
+					aria-label="Stop"
+				>
+					<Square class="size-4" />
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="inline-flex size-[30px] items-center justify-center rounded-full bg-primary text-primary-foreground transition active:scale-95 disabled:cursor-default disabled:opacity-35"
+					onclick={send}
+					disabled={!canSend}
+					aria-label="Send"
+				>
+					<ArrowUp class="size-4" />
+				</button>
+			{/if}
+		</div>
+	</div>
 </div>
-
-<style>
-	.composer {
-		display: flex;
-		align-items: flex-end;
-		gap: 8px;
-		padding: 12px;
-		border-top: 1px solid hsl(var(--border));
-		background: hsl(var(--background));
-	}
-	textarea {
-		flex: 1;
-		min-height: 36px;
-		max-height: 200px;
-		resize: none;
-		padding: 8px 12px;
-		font-size: 13.5px;
-		line-height: 1.5;
-		border: 1px solid hsl(var(--border));
-		border-radius: 12px;
-		background: hsl(var(--background));
-		color: hsl(var(--foreground));
-		outline: none;
-		font-family: inherit;
-	}
-	textarea:focus {
-		border-color: hsl(var(--ring));
-		box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
-	}
-	textarea:disabled {
-		opacity: 0.6;
-	}
-	:global(.composer .send) {
-		flex: 0 0 auto;
-		border-radius: 999px;
-	}
-</style>

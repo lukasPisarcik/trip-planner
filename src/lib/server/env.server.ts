@@ -11,6 +11,14 @@ import { z } from 'zod';
 const PrivateEnvSchema = z.object({
 	ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-4-6'),
 	CLAUDE_CODE_PATH: z.string().min(1).optional(),
+	// Agent turn watchdog (see src/lib/server/ai/agent.ts). A turn is aborted if
+	// the SDK emits no message for STALL ms (a stalled API stream), or if total
+	// runtime exceeds MAX ms. Coerced from strings since env values are strings.
+	AGENT_STALL_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
+	// Research-heavy first builds (many web searches + several itinerary writes)
+	// legitimately run past 5 minutes; 300s was aborting them mid-build before
+	// `create_trip` ever fired. 10 minutes gives them room to finish.
+	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(600_000),
 	// Read-only public deployment switch (e.g. Vercel). When `true`, the app
 	// serves trips from the committed snapshot, blocks all writes, and hides
 	// the AI co-pilot. Defaults to off so local development is unaffected.

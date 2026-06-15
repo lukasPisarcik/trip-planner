@@ -238,4 +238,8 @@ export interface Trip {
 	restaurants?: RestaurantsTab;
 	/** Free-form scratchpad the user dumps ideas/findings into; read by the AI co-pilot. */
 	brainstorm?: string;
+	/** User-toggled favorite, surfaced in the sidebar Favorites section. */
+	favorite?: boolean;
+	/** Sidebar folder this trip belongs to; null/undefined = ungrouped. */
+	folderId?: string | null;
 }

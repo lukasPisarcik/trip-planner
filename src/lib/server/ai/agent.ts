@@ -1,5 +1,6 @@
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib';
+import type { ChatModel } from '$lib/schemas';
 import { PrivateEnvValue } from '../env.server';
 import { tripMcpServer, tripAllowedToolNames } from './tools';
 import { newTripSystemPrompt, editTripSystemPrompt } from './prompts';
@@ -10,7 +11,19 @@ export interface AgentTurnOptions {
 	sessionId: string;
 	resume?: boolean;
 	message: string;
+	model?: ChatModel;
 	signal?: AbortSignal;
+}
+
+/** Built-in CLI tools the agent may use for live research. */
+const WEB_TOOLS = ['WebSearch', 'WebFetch'] as const;
+
+/** Thrown when the turn watchdog aborts a stalled or over-long agent turn. */
+export class AgentTimeoutError extends Error {
+	constructor(public readonly reason: 'stall' | 'max') {
+		super(`Agent turn aborted (${reason} timeout)`);
+		this.name = 'AgentTimeoutError';
+	}
 }
 
 function makeStderrCapture(scope: string) {
@@ -27,7 +40,7 @@ function makeStderrCapture(scope: string) {
 }
 
 export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKMessage> {
-	const { tripSlug, sessionId, resume, message, signal } = opts;
+	const { tripSlug, sessionId, resume, message, model: requestedModel, signal } = opts;
 
 	let systemPrompt: string;
 	if (tripSlug) {
@@ -39,8 +52,35 @@ export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKM
 	}
 
 	const claudePath = PrivateEnvValue('CLAUDE_CODE_PATH');
-	const model = PrivateEnvValue('ANTHROPIC_MODEL');
+	const model = requestedModel ?? PrivateEnvValue('ANTHROPIC_MODEL');
+	const stallMs = PrivateEnvValue('AGENT_STALL_TIMEOUT_MS');
+	const maxMs = PrivateEnvValue('AGENT_MAX_TURN_MS');
 	const stderr = makeStderrCapture('runAgentTurn');
+
+	// One controller drives both the watchdog and the external signal (client
+	// disconnect / stop button). Without this a stalled API stream hangs forever
+	// and orphans the CLI subprocess.
+	const ctrl = new AbortController();
+	if (signal) {
+		if (signal.aborted) ctrl.abort();
+		else signal.addEventListener('abort', () => ctrl.abort(), { once: true });
+	}
+
+	// Watchdog: `stallTimer` fires when the SDK goes quiet (reset on every
+	// message); `maxTimer` caps total runtime. Either aborts the turn.
+	let timedOut: 'stall' | 'max' | null = null;
+	let stallTimer: ReturnType<typeof setTimeout> | undefined;
+	const resetStall = () => {
+		clearTimeout(stallTimer);
+		stallTimer = setTimeout(() => {
+			timedOut = 'stall';
+			ctrl.abort();
+		}, stallMs);
+	};
+	const maxTimer = setTimeout(() => {
+		timedOut = 'max';
+		ctrl.abort();
+	}, maxMs);
 
 	log.info(
 		{
@@ -50,7 +90,9 @@ export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKM
 			model,
 			claudePath: claudePath ?? '(auto)',
 			messageChars: message.length,
-			systemPromptChars: systemPrompt.length
+			systemPromptChars: systemPrompt.length,
+			stallMs,
+			maxMs
 		},
 		'Starting agent turn'
 	);
@@ -61,19 +103,34 @@ export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKM
 			model,
 			systemPrompt,
 			mcpServers: { 'trip-planner': tripMcpServer },
-			allowedTools: [...tripAllowedToolNames],
-			tools: [],
+			// Trip tools + the CLI's built-in web tools so the agent can verify
+			// current hours/prices/ratings and surface trending spots. `tools` lists
+			// the enabled built-ins; `allowedTools` is the no-prompt allowlist.
+			allowedTools: [...tripAllowedToolNames, ...WEB_TOOLS],
+			tools: [...WEB_TOOLS],
+			// Isolate the agent from the host's Claude Code config. `query()` loads
+			// every filesystem setting source by default, which dragged the user's
+			// global MCP servers (e.g. Playwright) and their tool allow-lists into
+			// the turn — the agent then called `browser_run_code_unsafe` and stalled.
+			// `[]` = SDK isolation; `strictMcpConfig` honors only the servers below.
+			settingSources: [],
+			strictMcpConfig: true,
+			// Belt-and-braces: never let general-purpose built-ins through even if a
+			// future option change re-enables filesystem settings.
+			disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'NotebookEdit'],
 			includePartialMessages: true,
 			stderr: stderr.cb,
 			...(resume ? { resume: sessionId } : { sessionId }),
 			...(claudePath ? { pathToClaudeCodeExecutable: claudePath } : {}),
-			...(signal ? { abortController: toAbortController(signal) } : {})
+			abortController: ctrl
 		}
 	});
 
 	let count = 0;
+	resetStall();
 	try {
 		for await (const msg of q) {
+			resetStall();
 			count++;
 			log.debug(
 				{
@@ -88,6 +145,13 @@ export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKM
 		}
 		log.info({ sessionId, messages: count }, 'Agent turn finished');
 	} catch (err) {
+		if (timedOut) {
+			log.warn(
+				{ sessionId, reason: timedOut, messages: count, stallMs, maxMs },
+				'Agent turn timed out'
+			);
+			throw new AgentTimeoutError(timedOut);
+		}
 		log.error(
 			{
 				sessionId,
@@ -97,12 +161,8 @@ export async function* runAgentTurn(opts: AgentTurnOptions): AsyncGenerator<SDKM
 			'Agent turn threw'
 		);
 		throw err;
+	} finally {
+		clearTimeout(stallTimer);
+		clearTimeout(maxTimer);
 	}
-}
-
-function toAbortController(signal: AbortSignal): AbortController {
-	const ctrl = new AbortController();
-	if (signal.aborted) ctrl.abort();
-	else signal.addEventListener('abort', () => ctrl.abort(), { once: true });
-	return ctrl;
 }

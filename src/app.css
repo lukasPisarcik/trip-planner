@@ -189,8 +189,8 @@
 	--popover: 24 8% 13%;
 	--popover-foreground: 40 33% 93%;
 
-	--primary: 335 75% 75%; /* lighter pink for dark mode */
-	--primary-foreground: 335 30% 15%;
+	--primary: 335 70% 60%; /* vibrant pink — readable with white text (matches light) */
+	--primary-foreground: 0 0% 100%;
 
 	--secondary: 24 8% 17%;
 	--secondary-foreground: 40 33% 93%;
@@ -198,8 +198,8 @@
 	--muted: 24 8% 17%;
 	--muted-foreground: 30 12% 67%;
 
-	--accent: 335 75% 75%;
-	--accent-foreground: 335 30% 15%;
+	--accent: 335 70% 60%; /* matches primary; white text reads cleanly on it */
+	--accent-foreground: 0 0% 100%;
 
 	--destructive: 0 62% 50%;
 	--destructive-foreground: 0 0% 100%;

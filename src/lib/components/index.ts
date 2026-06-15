@@ -1,5 +1,6 @@
 export * as Sheet from './ui/sheet';
 export * as Select from './ui/select';
+export * as Collapsible from './ui/collapsible';
 export * as RadioGroup from './ui/radio-group';
 export * as AvatarUI from './ui/avatar';
 export * as BadgeUI from './ui/badge';

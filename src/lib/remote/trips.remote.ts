@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { command, query } from '$app/server';
-import { EmptyInput, TripSchema, TripHeadlinePatchSchema } from '$lib/schemas';
+import {
+	EmptyInput,
+	TripSchema,
+	TripHeadlinePatchSchema,
+	MoveTripToFolderInput
+} from '$lib/schemas';
 import * as tripsService from '$lib/server/services/trips.service';
 
 const SlugInput = z.object({ slug: z.string().min(1) });
@@ -13,6 +18,11 @@ const UpdateTripFieldsInput = z.object({
 const SaveBrainstormInput = z.object({
 	slug: z.string().min(1),
 	content: z.string()
+});
+
+const SetTripFavoriteInput = z.object({
+	slug: z.string().min(1),
+	favorite: z.boolean()
 });
 
 export const listTrips = query(EmptyInput, async () => {
@@ -39,5 +49,15 @@ export const deleteTrip = command(SlugInput, async ({ slug }) => {
 
 export const saveBrainstorm = command(SaveBrainstormInput, async ({ slug, content }) => {
 	await tripsService.replaceTripTab(slug, 'brainstorm', content);
+	return { ok: true } as const;
+});
+
+export const setTripFavorite = command(SetTripFavoriteInput, async ({ slug, favorite }) => {
+	await tripsService.setTripFavorite(slug, favorite);
+	return { ok: true } as const;
+});
+
+export const moveTripToFolder = command(MoveTripToFolderInput, async ({ slug, folderId }) => {
+	await tripsService.moveTripToFolder(slug, folderId);
 	return { ok: true } as const;
 });

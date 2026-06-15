@@ -114,6 +114,45 @@ export async function replaceTripTab(
 	await tripsStore.write(next);
 }
 
+export async function setTripFavorite(slug: string, favorite: boolean): Promise<void> {
+	assertWritable();
+	log.info({ slug, favorite }, 'Setting trip favorite');
+	const records = await tripsStore.read();
+	const idx = records.findIndex((r) => r.slug === slug);
+	if (idx === -1) throw new Error(`Trip "${slug}" not found`);
+	const next = [...records];
+	next[idx] = { ...next[idx], favorite, updatedAt: Date.now() };
+	await tripsStore.write(next);
+}
+
+export async function moveTripToFolder(slug: string, folderId: string | null): Promise<void> {
+	assertWritable();
+	log.info({ slug, folderId }, 'Moving trip to folder');
+	const records = await tripsStore.read();
+	const idx = records.findIndex((r) => r.slug === slug);
+	if (idx === -1) throw new Error(`Trip "${slug}" not found`);
+	const next = [...records];
+	next[idx] = { ...next[idx], folderId, updatedAt: Date.now() };
+	await tripsStore.write(next);
+}
+
+// Clear a folder assignment from every trip in it (used when a folder is deleted
+// so we never leave dangling folderId references). Keeps the trips store owned
+// by its own service rather than reaching in from folders.service.
+export async function unassignFolder(folderId: string): Promise<void> {
+	assertWritable();
+	const records = await tripsStore.read();
+	let changed = false;
+	const next = records.map((r) => {
+		if (r.folderId === folderId) {
+			changed = true;
+			return { ...r, folderId: null, updatedAt: Date.now() };
+		}
+		return r;
+	});
+	if (changed) await tripsStore.write(next);
+}
+
 export async function deleteTrip(slug: string): Promise<void> {
 	assertWritable();
 	log.info({ slug }, 'Deleting trip');

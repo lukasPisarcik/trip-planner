@@ -301,7 +301,16 @@ export const TripSchema = z.object({
 	budget: BudgetTabSchema,
 	tips: TipsTabSchema,
 	restaurants: RestaurantsTabSchema.optional(),
-	brainstorm: BrainstormSchema.optional()
+	brainstorm: BrainstormSchema.optional(),
+	// User-toggled favorite (shown in the sidebar Favorites section). Optional so
+	// existing stored trips and the committed snapshot parse unchanged. The AI
+	// can't set it — it's excluded from TripHeadlinePatchSchema below.
+	favorite: z.boolean().optional(),
+	// Sidebar folder this trip belongs to (null/absent = ungrouped). Optional +
+	// nullable so existing stored trips, the snapshot, and AI-created trips parse
+	// unchanged. The AI never sets it — moves go through the moveTripToFolder
+	// command, not TripHeadlinePatchSchema.
+	folderId: z.string().nullable().optional()
 });
 
 // Headline-only fields the AI co-pilot can patch with the `update_trip_fields` tool.
@@ -323,24 +332,84 @@ export const TripHeadlinePatchSchema = TripSchema.pick({
 export type TripHeadlinePatch = z.infer<typeof TripHeadlinePatchSchema>;
 
 // =============================================================================
+// Sidebar folders (one level — folders group trips, trips can't nest folders).
+// =============================================================================
+
+// Public folder shape. `id` is a slug so it's URL/JSON-safe; the persisted
+// record adds a `createdAt` (stripped before reaching callers), mirroring trips.
+export const FolderSchema = z.object({
+	id: z
+		.string()
+		.min(1)
+		.regex(/^[a-z0-9-]+$/),
+	name: z.string().min(1).max(60)
+});
+export type Folder = z.infer<typeof FolderSchema>;
+
+export const CreateFolderInput = z.object({ name: z.string().min(1).max(60) });
+export const RenameFolderInput = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1).max(60)
+});
+export const FolderIdInput = z.object({ id: z.string().min(1) });
+export const MoveTripToFolderInput = z.object({
+	slug: z.string().min(1),
+	// null = move to the ungrouped "Trips" section.
+	folderId: z.string().min(1).nullable()
+});
+
+// =============================================================================
 // AI chat schemas.
 // =============================================================================
 
-export const ChatRoleSchema = z.enum(['user', 'assistant', 'tool']);
+// `thinking` carries the model's streamed reasoning (rendered as a collapsible
+// block). `tool` messages store a friendly summary in `content` and an optional
+// plain-language `detail` — never raw JSON. `error` marks a turn that failed
+// before producing any reply, so reloads show what happened instead of a
+// dangling, unanswered user message.
+export const ChatRoleSchema = z.enum(['user', 'assistant', 'tool', 'thinking', 'error']);
 
 export const ChatMessageSchema = z.object({
 	id: z.string(),
 	role: ChatRoleSchema,
 	content: z.string(),
 	toolName: z.string().optional(),
+	// Expandable plain-language summary for tool messages (and reusable elsewhere).
+	detail: z.string().optional(),
 	createdAt: z.number()
 });
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
+// =============================================================================
+// Claude model selection (standalone agent view + composer dropdown).
+// Vendor-agnostic shape so non-Claude providers could be added later, but the
+// Claude Agent SDK is Claude-only for now. The route falls back to the
+// `ANTHROPIC_MODEL` env var when no (or an unknown) model is supplied.
+// =============================================================================
+
+export const ChatModelSchema = z.enum([
+	'claude-opus-4-8',
+	'claude-sonnet-4-6',
+	'claude-haiku-4-5-20251001'
+]);
+export type ChatModel = z.infer<typeof ChatModelSchema>;
+
+export const CHAT_MODELS: ReadonlyArray<{ id: ChatModel; label: string; blurb: string }> = [
+	{ id: 'claude-opus-4-8', label: 'Opus 4.8', blurb: 'Most capable' },
+	{ id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', blurb: 'Balanced' },
+	{ id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', blurb: 'Fastest' }
+];
+
+export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-4-6';
+
 export const ChatRequestSchema = z.object({
 	tripSlug: z.string().nullable(),
-	message: z.string().min(1)
+	message: z.string().min(1),
+	model: ChatModelSchema.optional(),
+	// Session to resume. Absent → a brand-new conversation is created. The client
+	// learns the id from the `session` SSE event and sends it on follow-up turns.
+	sessionId: z.string().optional()
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

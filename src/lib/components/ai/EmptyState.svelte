@@ -10,12 +10,14 @@
 	} = $props();
 </script>
 
-<div class="empty">
-	<div class="icon-wrap">
+<div class="flex flex-col items-start gap-2 px-5 py-6">
+	<div class="mb-1 flex size-11 items-center justify-center rounded-xl bg-muted/50 text-primary">
 		<Sparkles class="size-7" />
 	</div>
-	<h3>{mode === 'new-trip' ? 'Plan a new trip' : 'Edit this trip'}</h3>
-	<p>
+	<h3 class="m-0 font-serif text-[1.4rem] font-normal">
+		{mode === 'new-trip' ? 'Plan a new trip' : 'Edit this trip'}
+	</h3>
+	<p class="m-0 mb-2 text-[13.5px] leading-[1.55] text-muted-foreground">
 		{#if mode === 'new-trip'}
 			Tell me where you'd like to go — countries, dates, where you're flying from. I'll ask the rest
 			and draft a trip you can refine.
@@ -27,71 +29,14 @@
 		{/if}
 	</p>
 
-	<div class="examples">
-		{#if mode === 'new-trip'}
-			<button type="button" class="example"
-				>10 days in Portugal in October, flying from Vienna</button
+	<div class="flex w-full flex-col gap-1.5">
+		{#each mode === 'new-trip' ? ['10 days in Portugal in October, flying from Vienna', 'A long weekend in Lisbon next month', '3-week Japan + Korea trip in spring'] : ['Add a day in Sintra', 'Swap the night train for a flight', 'Shorten this trip by 2 days'] as example (example)}
+			<button
+				type="button"
+				class="cursor-pointer rounded-[10px] border bg-background px-3 py-2 text-left text-[12.5px] text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
 			>
-			<button type="button" class="example">A long weekend in Lisbon next month</button>
-			<button type="button" class="example">3-week Japan + Korea trip in spring</button>
-		{:else}
-			<button type="button" class="example">Add a day in Sintra</button>
-			<button type="button" class="example">Swap the night train for a flight</button>
-			<button type="button" class="example">Shorten this trip by 2 days</button>
-		{/if}
+				{example}
+			</button>
+		{/each}
 	</div>
 </div>
-
-<style>
-	.empty {
-		padding: 24px 20px;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 8px;
-	}
-	.icon-wrap {
-		width: 44px;
-		height: 44px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 12px;
-		background: var(--trip-accent-lt, hsl(var(--muted) / 0.5));
-		color: var(--trip-accent, hsl(var(--primary)));
-		margin-bottom: 4px;
-	}
-	h3 {
-		font-family: var(--font-serif, inherit);
-		font-size: 1.4rem;
-		font-weight: 400;
-		margin: 0;
-	}
-	p {
-		font-size: 13.5px;
-		line-height: 1.55;
-		color: hsl(var(--muted-foreground));
-		margin: 0 0 8px;
-	}
-	.examples {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		width: 100%;
-	}
-	.example {
-		text-align: left;
-		font-size: 12.5px;
-		padding: 8px 12px;
-		border: 1px solid hsl(var(--border));
-		background: hsl(var(--background));
-		border-radius: 10px;
-		color: hsl(var(--foreground));
-		cursor: pointer;
-		font-family: inherit;
-	}
-	.example:hover {
-		background: hsl(var(--muted) / 0.4);
-		border-color: var(--trip-accent-md, hsl(var(--border)));
-	}
-</style>
