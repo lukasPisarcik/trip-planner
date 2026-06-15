@@ -157,6 +157,15 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 				label: 'Reviewed the current trip',
 				pending: 'Reading the trip…'
 			};
+		case 'find_image': {
+			const q = str(args.query);
+			return {
+				icon: '🖼️',
+				label: q ? `Found a photo: ${q}` : 'Found a photo',
+				pending: 'Finding a photo…',
+				detail: q
+			};
+		}
 		case 'WebSearch': {
 			const q = str(args.query);
 			return {

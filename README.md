@@ -34,15 +34,14 @@ A quiet little app for the kind of traveller who plans the trip almost as much a
 
 - **One page per trip.** A hero, six tabs, and everything you need to leave tomorrow morning — Itinerary, Transport, Viral Spots, Flights, Budget, Tips.
 - **AI co-pilot on the right.** A Notion-style chat panel where the agent helps you draft a new trip or edit an existing one. Pick your model from the composer — **Claude** (via your local Claude Code login) or **OpenAI / Codex** (via your local `codex` login). Each provider's models stay disabled until that CLI is signed in; no extra API key needed.
-- **Sidebar of dreams.** Every trip lives in a Notion-style sidebar — organize them into folders (drag-and-drop or a menu), star favorites, and jump anywhere with the ⌘K command palette.
+- **Sidebar.** Every trip lives in a Notion-style sidebar — organize them into folders (drag-and-drop or a menu), star favorites, and jump anywhere with the ⌘K command palette.
 - **A landing page that feels like a wishlist.** Each trip gets a card with its own colour, its own flags, and its own highlights — pick what's next.
 - **Light and dark, side by side.** A warm cream daytime mode and a soft dark evening mode. One toggle in the corner.
 - **Made to be added to.** Tell the AI where you want to go and it'll seed a fresh trip. Then iterate from there.
 
 ## Setup
 
-Trips, folders, and chats live in **[Convex](https://convex.dev)** — a hosted
-reactive database. Data is no longer committed to git: you run your own Convex
+Trips, folders, and chats live in **[Convex](https://convex.dev)** — you run your own Convex
 deployment, and both local dev and anything you publish read from it live.
 
 **Prerequisites:** [Bun](https://bun.sh), a free Convex account, and (for the AI
@@ -95,7 +94,7 @@ Server vars are declared and validated in `src/lib/server/env.server.ts`; see `.
 
 ### Deploy a read-only public viewer (optional)
 
-To share your trips read-only (e.g. on Vercel):
+To share your trips read-only (e.g. on Vercel or similar):
 
 1. Import the repo into Vercel — it uses `@sveltejs/adapter-vercel`; the default build works.
 2. Set **`PUBLIC_CONVEX_URL`** and **`CONVEX_URL`** (both your deployment's `.convex.cloud`

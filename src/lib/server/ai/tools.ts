@@ -14,6 +14,7 @@ import {
 	AskUserPayloadSchema
 } from '$lib/schemas';
 import * as tripsService from '../services/trips.service';
+import { findWikimediaImage } from '../services/images.service';
 
 function ok(text: string) {
 	return { content: [{ type: 'text' as const, text }] };
@@ -31,6 +32,27 @@ const getTripTool = tool(
 		const trip = await tripsService.getTrip(slug);
 		if (!trip) return err(`Trip "${slug}" not found`);
 		return ok(JSON.stringify(trip, null, 2));
+	}
+);
+
+const findImageTool = tool(
+	'find_image',
+	'Find a real, hotlinkable photo (Wikimedia Commons) for a place or landmark. Pass a specific ' +
+		'query like "Gergeti Trinity Church, Kazbegi" or "Narisawa restaurant, Tokyo". Returns a JSON ' +
+		'`{ url, alt, credit }` you can drop straight into a viral spot or restaurant `image`, or a ' +
+		'"not found" message. Use this instead of WebSearch to get image URLs — never hand-write or ' +
+		'guess `upload.wikimedia.org` URLs.',
+	{ query: z.string() },
+	async ({ query }) => {
+		try {
+			const image = await findWikimediaImage(query);
+			return image
+				? ok(JSON.stringify(image))
+				: ok('No reliable image found — omit the image for this item.');
+		} catch (e) {
+			log.error({ err: e }, 'find_image failed');
+			return err(e instanceof Error ? e.message : 'image lookup failed');
+		}
 	}
 );
 
@@ -76,7 +98,7 @@ const askUserTool = tool(
 const createTripTool = tool(
 	'create_trip',
 	'Create a brand-new trip. Provide the full Trip object. Slug must be unique. Populate viral-spot ' +
-		'and restaurant `image` fields with real, hotlinkable photo URLs (prefer Wikimedia/Wikipedia), ' +
+		'and restaurant `image` fields by calling `find_image` per place (never hand-write image URLs), ' +
 		'and set every restaurant `mapUrl` to a Google Maps search link.',
 	TripSchema.shape,
 	async (args) => {
@@ -120,9 +142,9 @@ const replaceTransportTool = tool(
 
 const replaceViralTool = tool(
 	'replace_viral',
-	'Replace the entire viral-spots tab payload. For each spot, include a real, hotlinkable `image` ' +
-		'where one exists (prefer commons.wikimedia.org / Wikipedia upload URLs; add a concise `alt` and ' +
-		'a `credit`; omit `image` entirely if no reliable photo is found — never invent a URL).',
+	'Replace the entire viral-spots tab payload. For each spot, call `find_image` to get a real, ' +
+		'hotlinkable `image` and use what it returns; omit `image` only when `find_image` finds nothing. ' +
+		'Never invent or hand-write an image URL.',
 	{ slug: z.string(), payload: ViralTabSchema },
 	async ({ slug, payload }) => {
 		try {
@@ -178,7 +200,7 @@ const replaceTipsTool = tool(
 
 const replaceRestaurantsTool = tool(
 	'replace_restaurants',
-	'Replace the entire food & drink tab payload (callout + cities of restaurants, coffee shops & bars + note). Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks and nice coffee shops and bars, not only restaurants. Set every place `mapUrl` to a Google Maps search link (https://www.google.com/maps/search/?api=1&query=<URL-encoded "Name, City">), and include a real, hotlinkable `image` where available (prefer Wikimedia/Wikipedia; add alt + credit; omit if none found).',
+	'Replace the entire food & drink tab payload (callout + cities of restaurants, coffee shops & bars + note). Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks and nice coffee shops and bars, not only restaurants. Set every place `mapUrl` to a Google Maps search link (https://www.google.com/maps/search/?api=1&query=<URL-encoded "Name, City">), and call `find_image` to add a real, hotlinkable `image` where one exists (omit if it finds nothing; never hand-write image URLs).',
 	{ slug: z.string(), payload: RestaurantsTabSchema },
 	async ({ slug, payload }) => {
 		try {
@@ -192,6 +214,7 @@ const replaceRestaurantsTool = tool(
 
 export const tripToolDefs = [
 	getTripTool,
+	findImageTool,
 	askUserTool,
 	updateTripFieldsTool,
 	createTripTool,

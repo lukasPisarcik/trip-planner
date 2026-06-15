@@ -138,6 +138,15 @@ export const RouteGroupSchema = z.object({
 	routes: z.array(TransportRouteSchema)
 });
 
+// A hotlinkable photo for a viral spot or restaurant. Resolved by the agent's
+// `find_image` tool (and backfilled server-side) — see images.service.ts.
+export const ImageSchema = z.object({
+	url: z.url(),
+	alt: z.string(),
+	credit: z.string().optional()
+});
+export type TripImage = z.infer<typeof ImageSchema>;
+
 export const ViralSpotSchema = z.object({
 	color: ViralColorSchema,
 	heat: HeatLevelSchema,
@@ -146,13 +155,7 @@ export const ViralSpotSchema = z.object({
 	location: z.string(),
 	description: z.string(),
 	tags: z.array(z.string()),
-	image: z
-		.object({
-			url: z.url(),
-			alt: z.string(),
-			credit: z.string().optional()
-		})
-		.optional()
+	image: ImageSchema.optional()
 });
 
 export const ViralSectionSchema = z.object({
@@ -177,13 +180,7 @@ export const RestaurantSchema = z.object({
 	source: RestaurantSourceSchema.optional(),
 	socialUrl: z.url().optional(),
 	mapUrl: z.url().optional(),
-	image: z
-		.object({
-			url: z.url(),
-			alt: z.string(),
-			credit: z.string().optional()
-		})
-		.optional()
+	image: ImageSchema.optional()
 });
 
 export const RestaurantCitySchema = z.object({
