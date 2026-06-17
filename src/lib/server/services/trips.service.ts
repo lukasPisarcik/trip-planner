@@ -3,6 +3,11 @@ import { type TripHeadlinePatch } from '$lib/schemas';
 import { type Trip } from '$lib/trips';
 import { convex, ownerSecret } from '../data/convex';
 import { isViewerMode } from '../env.server';
+import {
+	backfillTripImages,
+	backfillViralImages,
+	backfillRestaurantImages
+} from './images.service';
 
 // Reads come live from Convex in every mode. Writes are gated: VIEWER_MODE blocks
 // them here (a fast, clear failure), and the Convex mutations independently require
@@ -21,8 +26,10 @@ export async function getTrip(slug: string): Promise<Trip | null> {
 
 export async function createTrip(input: unknown): Promise<string> {
 	assertWritable();
+	// Backfill any viral-spot/restaurant images the agent left empty (best-effort).
+	const trip = await backfillTripImages(input);
 	// Validation (TripSchema) happens authoritatively inside the Convex mutation.
-	return await convex().mutation(api.trips.createTrip, { secret: ownerSecret(), trip: input });
+	return await convex().mutation(api.trips.createTrip, { secret: ownerSecret(), trip });
 }
 
 export async function updateTripFields(slug: string, patch: TripHeadlinePatch): Promise<void> {
@@ -48,7 +55,16 @@ export async function replaceTripTab(
 	payload: unknown
 ): Promise<void> {
 	assertWritable();
-	await convex().mutation(api.trips.replaceTripTab, { secret: ownerSecret(), slug, tab, payload });
+	// Backfill any images the agent left empty before persisting (best-effort).
+	let body = payload;
+	if (tab === 'viral') body = await backfillViralImages(payload);
+	else if (tab === 'restaurants') body = await backfillRestaurantImages(payload);
+	await convex().mutation(api.trips.replaceTripTab, {
+		secret: ownerSecret(),
+		slug,
+		tab,
+		payload: body
+	});
 }
 
 export async function setTripFavorite(slug: string, favorite: boolean): Promise<void> {

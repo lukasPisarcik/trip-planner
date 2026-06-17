@@ -157,6 +157,43 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 				label: 'Reviewed the current trip',
 				pending: 'Reading the trip…'
 			};
+		case 'find_image': {
+			const q = str(args.query);
+			return {
+				icon: '🖼️',
+				label: q ? `Found a photo: ${q}` : 'Found a photo',
+				pending: 'Finding a photo…',
+				detail: q
+			};
+		}
+		case 'extract_social_post': {
+			const url = str(args.url);
+			let host: string | undefined;
+			if (url) {
+				try {
+					host = new URL(url).hostname.replace(/^www\./, '');
+				} catch {
+					host = url;
+				}
+			}
+			const platform = host?.includes('tiktok')
+				? 'TikTok'
+				: host?.includes('instagram') || host?.includes('instagr.am')
+					? 'Instagram'
+					: 'post';
+			return {
+				icon: '🎬',
+				label: `Imported a ${platform} link`,
+				pending: `Reading the ${platform} link…`,
+				detail: url
+			};
+		}
+		case 'transcribe_reel':
+			return {
+				icon: '🎙️',
+				label: 'Transcribed the reel',
+				pending: 'Transcribing the reel…'
+			};
 		case 'WebSearch': {
 			const q = str(args.query);
 			return {

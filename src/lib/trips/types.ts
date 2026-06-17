@@ -89,6 +89,9 @@ export interface ViralSpot {
 	location: string;
 	description: string;
 	tags: string[];
+	/** Set when imported from a TikTok/Instagram post — shows a source badge. */
+	source?: RestaurantSource;
+	socialUrl?: string;
 	image?: {
 		url: string;
 		alt: string;

@@ -19,6 +19,14 @@ const PrivateEnvSchema = z.object({
 	OPENAI_MODEL: z.string().min(1).default('gpt-5-codex'),
 	CODEX_PATH: z.string().min(1).optional(),
 	MCP_BRIDGE_SECRET: z.string().min(1).optional(),
+	// Local reel transcription (the `transcribe_reel` tool). yt-dlp extracts the
+	// audio and whisper.cpp transcribes it — all on the owner's machine, no keys.
+	// WHISPER_MODEL_PATH points at a ggml model file; when it's unset (fresh checkout
+	// or the read-only Vercel deployment) transcription silently no-ops. The two
+	// binary paths default to the names on PATH.
+	YT_DLP_PATH: z.string().min(1).default('yt-dlp'),
+	WHISPER_CLI_PATH: z.string().min(1).default('whisper-cli'),
+	WHISPER_MODEL_PATH: z.string().min(1).optional(),
 	// Agent turn watchdog (see src/lib/server/ai/agent.ts). A turn is aborted if
 	// the SDK emits no message for STALL ms (a stalled API stream), or if total
 	// runtime exceeds MAX ms. Coerced from strings since env values are strings.

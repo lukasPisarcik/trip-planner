@@ -9,7 +9,8 @@
 		disabled = false,
 		showModel = false,
 		usage = null,
-		placeholder = 'Plan a trip…'
+		placeholder = 'Plan a trip…',
+		value = $bindable('')
 	}: {
 		onsend: (text: string) => void;
 		onstop?: () => void;
@@ -19,10 +20,17 @@
 		/** Context-window footprint of the conversation so far (drives the gauge). */
 		usage?: { used: number; total: number } | null;
 		placeholder?: string;
+		/** Two-way bound draft text, so a parent can prefill it (e.g. a starter prompt). */
+		value?: string;
 	} = $props();
 
-	let value = $state('');
 	let ta = $state<HTMLTextAreaElement | null>(null);
+
+	// When a parent prefills the draft, grow the textarea to fit it.
+	$effect(() => {
+		void value;
+		queueMicrotask(autoresize);
+	});
 
 	const canSend = $derived(value.trim().length > 0 && !disabled && !streaming);
 

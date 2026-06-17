@@ -3,11 +3,28 @@
 
 	let {
 		mode,
-		tripTitle
+		tripTitle,
+		onExample
 	}: {
 		mode: 'new-trip' | 'edit-trip';
 		tripTitle?: string;
+		/** Click handler for an example chip — fills the composer with the text. */
+		onExample?: (text: string) => void;
 	} = $props();
+
+	const examples = $derived(
+		mode === 'new-trip'
+			? [
+					'10 days in Portugal in October, flying from Vienna',
+					'A long weekend in Lisbon next month',
+					'3-week Japan + Korea trip in spring'
+				]
+			: [
+					'Add a day in Sintra',
+					'Swap the night train for a flight',
+					'Go through my brainstorm notes and update the plan — import any TikTok/Instagram links as restaurants or viral spots'
+				]
+	);
 </script>
 
 <div class="flex flex-col items-start gap-2 px-5 py-6">
@@ -30,9 +47,10 @@
 	</p>
 
 	<div class="flex w-full flex-col gap-1.5">
-		{#each mode === 'new-trip' ? ['10 days in Portugal in October, flying from Vienna', 'A long weekend in Lisbon next month', '3-week Japan + Korea trip in spring'] : ['Add a day in Sintra', 'Swap the night train for a flight', 'Shorten this trip by 2 days'] as example (example)}
+		{#each examples as example (example)}
 			<button
 				type="button"
+				onclick={() => onExample?.(example)}
 				class="cursor-pointer rounded-[10px] border bg-background px-3 py-2 text-left text-[12.5px] text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
 			>
 				{example}

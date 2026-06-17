@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ViralSpot } from '$lib/trips';
+	import type { ViralSpot, RestaurantSource } from '$lib/trips';
 	let { spot }: { spot: ViralSpot } = $props();
 
 	const heatLabel: Record<ViralSpot['heat'], string> = {
@@ -7,6 +7,15 @@
 		hot: '🌶 trending',
 		rising: '📈 rising'
 	};
+
+	const sourceMeta: Record<RestaurantSource, { icon: string; label: string }> = {
+		tiktok: { icon: '🎵', label: 'TikTok' },
+		instagram: { icon: '📸', label: 'Instagram' },
+		google: { icon: '⭐', label: 'Google' },
+		local: { icon: '📍', label: 'Local pick' }
+	};
+
+	const source = $derived(spot.source ? sourceMeta[spot.source] : null);
 </script>
 
 <div class="viral-card vc-{spot.color}">
@@ -32,6 +41,26 @@
 			<span class="vtag">{tag}</span>
 		{/each}
 	</div>
+	{#if source}
+		<div class="viral-footer">
+			{#if spot.socialUrl}
+				<!-- External social link (TikTok/Instagram) — not SvelteKit navigation -->
+				<!-- eslint-disable svelte/no-navigation-without-resolve -->
+				<a
+					class="src-badge src-{spot.source}"
+					href={spot.socialUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					{source.icon}
+					{source.label}
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			{:else}
+				<span class="src-badge src-{spot.source}">{source.icon} {source.label}</span>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -120,6 +149,45 @@
 		background: var(--cream);
 		border: 1px solid var(--trip-border);
 		color: var(--ink3);
+	}
+	/* Source badge — mirrors RestaurantCard so an imported reel reads consistently. */
+	.viral-footer {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+		margin-top: 9px;
+	}
+	.src-badge {
+		font-size: 10px;
+		font-weight: 700;
+		padding: 2px 8px;
+		border-radius: 8px;
+		border: 1px solid;
+		text-decoration: none;
+	}
+	.src-tiktok {
+		background: var(--fire-lt);
+		color: var(--fire);
+		border-color: var(--fire-md);
+	}
+	.src-instagram {
+		background: var(--rose-lt);
+		color: var(--rose);
+		border-color: var(--rose-md);
+	}
+	.src-google {
+		background: var(--sky-lt);
+		color: var(--sky);
+		border-color: var(--sky-md);
+	}
+	.src-local {
+		background: var(--sage-lt);
+		color: var(--sage);
+		border-color: var(--sage-md);
+	}
+	a.src-badge:hover {
+		filter: brightness(0.97);
 	}
 	.heat {
 		position: absolute;
