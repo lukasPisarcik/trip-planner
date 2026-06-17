@@ -60,6 +60,42 @@ export function messagesToItems(messages: ChatMessage[]): TurnItem[] {
 	});
 }
 
+/**
+ * Merge persisted history with the live turn's items for rendering. Any history
+ * message whose id also appears live is dropped in favour of the live item — the
+ * only overlap mid-turn is the user message (persisted up front, also echoed
+ * live), which shares an id so it renders once. Settled turns have no live items.
+ */
+export function mergeItems(history: ChatMessage[], live: TurnItem[]): TurnItem[] {
+	const liveIds = live.map((i) => i.id);
+	return [...messagesToItems(history).filter((i) => !liveIds.includes(i.id)), ...live];
+}
+
+/**
+ * The session rendering this chat's in-flight turn, or `null` to fall back to
+ * persisted history. Returns the active session (which may be driven by another
+ * surface) while it streams this chat, and keeps returning it after the turn
+ * settles until `history` reflects the turn — so the agent workspace, opened
+ * mid-run from the panel or sidebar, shows live output/tools/loading without a
+ * blank flash at completion or a double-render once history catches up. Must be
+ * read inside a reactive scope (it reads the active session's live state).
+ */
+export function liveTurnFor(
+	sessionId: string | undefined,
+	history: ChatMessage[]
+): ChatSession | null {
+	const active = chatActivityStore.activeSession;
+	if (!sessionId || !active || active.lastSessionId !== sessionId) return null;
+	if (active.streaming) return active;
+	if (active.items.length === 0) return null;
+	// Settled: linger until history holds a message past this turn's user message
+	// (i.e. the turn has been persisted), then defer to history.
+	const userId = active.items.find((i) => i.kind === 'user')?.id;
+	const userIdx = userId ? history.findIndex((m) => m.id === userId) : -1;
+	const covered = userIdx >= 0 && userIdx < history.length - 1;
+	return covered ? null : active;
+}
+
 export interface SendOptions {
 	tripSlug: string | null;
 	model?: ChatModel;
@@ -111,6 +147,12 @@ export class ChatSession {
 		this.lastSessionId = null;
 		this.usage = null;
 		this.createdTripSlug = null;
+		// NB: deliberately do NOT touch chatActivityStore here. `reset()` runs inside
+		// reactive effects (e.g. the panel's trip-switch effect → resetToList), so
+		// reading/writing the store's `activeSession` would make those effects depend
+		// on it and re-fire — aborting the very turn that just registered. A lingering
+		// reference is harmless: `liveTurnFor` gates on streaming/coverage, and the
+		// next turn's `register()` replaces it.
 	}
 
 	async send(text: string, opts: SendOptions): Promise<void> {
@@ -119,7 +161,10 @@ export class ChatSession {
 		this.authRequired = false;
 		// A fresh turn supersedes any prior "trip ready" card.
 		this.createdTripSlug = null;
-		this.items.push({ kind: 'user', id: crypto.randomUUID(), text });
+		// Stable id shared with the server's persisted copy (see SendOptions docs),
+		// so other surfaces can dedupe the live echo against loaded history.
+		const userId = crypto.randomUUID();
+		this.items.push({ kind: 'user', id: userId, text });
 		this.streaming = true;
 		this.status = 'thinking';
 		this.statusLabel = 'Thinking…';
@@ -129,8 +174,10 @@ export class ChatSession {
 
 		// Resume the session the caller named, or the one we learned mid-conversation.
 		const resumeId = opts.sessionId ?? this.lastSessionId ?? undefined;
-		// Light up the sidebar's live "Working…" indicator for a known session id.
+		// Light up the sidebar's live "Working…" indicator for a known session id, and
+		// expose this session so other surfaces can render the in-flight turn.
 		chatActivityStore.start(resumeId);
+		chatActivityStore.register(this);
 
 		let assistantIdx: number | null = null;
 		let thinkingIdx: number | null = null;
@@ -145,7 +192,8 @@ export class ChatSession {
 					message: text,
 					model: opts.model,
 					sessionId: resumeId,
-					newChat: opts.forceNew || undefined
+					newChat: opts.forceNew || undefined,
+					messageId: userId
 				}),
 				signal: controller.signal
 			});
@@ -179,6 +227,13 @@ export class ChatSession {
 								// A brand-new conversation just learned its id — mark it active
 								// so its sidebar row shows "Working…" too.
 								chatActivityStore.start(ev.sessionId);
+								// The server creates the chat record before streaming but persists
+								// its messages only at the end. For a freshly-created session that
+								// means no sidebar/list row exists yet, so the live run would be
+								// invisible until it settles. When the id differs from the one we
+								// asked to resume (i.e. a new chat), refresh the lists now so the
+								// row appears mid-run and lights up as "Working…".
+								if (ev.sessionId !== resumeId) chatActivityStore.bump();
 							}
 							break;
 						}

@@ -30,7 +30,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 		throw error(400, 'Invalid request body');
 	}
 
-	const { tripSlug, message, model, sessionId, newChat } = parsed.data;
+	const { tripSlug, message, model, sessionId, newChat, messageId } = parsed.data;
 	log.info(
 		{ reqId, tripSlug, model, sessionId, messageChars: message.length },
 		'Chat request: validated'
@@ -70,13 +70,34 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	let activeTripSlug = tripSlug;
 
 	const userMsg: ChatMessage = {
-		id: crypto.randomUUID(),
+		// Reuse the client's id so its live echo and this persisted copy dedupe when a
+		// surface renders both (e.g. expanding a running chat into the agent workspace).
+		id: messageId ?? crypto.randomUUID(),
 		role: 'user',
 		content: message,
 		createdAt: Date.now()
 	};
 
-	const newMessages: ChatMessage[] = [userMsg];
+	// Persist the user's message up front so the conversation gets a sidebar/list
+	// row immediately. `listChats` hides empty threads and the rest of the turn's
+	// messages aren't persisted until finalize() (turn end), which left a freshly
+	// created chat invisible — and so un-resumable (e.g. when expanding into the
+	// agent workspace) — for the entire turn. Best-effort: on failure we fall back
+	// to persisting everything in finalize().
+	let userPersisted = false;
+	try {
+		await chatsService.appendMessages(chat.sessionId, [userMsg]);
+		userPersisted = true;
+	} catch (e) {
+		log.warn(
+			{ reqId, sessionId: chat.sessionId, err: e instanceof Error ? e.message : String(e) },
+			'Failed to persist user message up front; will persist it with the turn'
+		);
+	}
+
+	// Messages produced during the turn (assistant/tool/thinking/questions/error).
+	// The user message is already persisted above unless that write failed.
+	const newMessages: ChatMessage[] = userPersisted ? [] : [userMsg];
 
 	// One controller aborts the agent on either client disconnect (request.signal)
 	// or stream cancellation (reader.cancel()). runAgentTurn merges this with its

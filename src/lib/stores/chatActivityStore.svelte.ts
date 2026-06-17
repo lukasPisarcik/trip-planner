@@ -1,3 +1,5 @@
+import type { ChatSession } from './chatSession.svelte';
+
 /**
  * Tracks which chat session (if any) is currently streaming a turn, so surfaces
  * that don't own the {@link ChatSession} instance — notably the sidebar session
@@ -7,6 +9,15 @@
  */
 class ChatActivityStoreClass {
 	streamingSessionId = $state<string | null>(null);
+
+	/**
+	 * The {@link ChatSession} driving the active turn. Lets a surface that didn't
+	 * start the turn (the agent workspace opened mid-run from the panel/sidebar)
+	 * render its live items, tools, and streaming status instead of a static
+	 * snapshot. Consumers gate on `streaming` + matching `lastSessionId`, so a
+	 * lingering reference to a settled session is harmless.
+	 */
+	activeSession = $state<ChatSession | null>(null);
 
 	/**
 	 * Monotonic counter bumped whenever the set of chats changes (a session is
@@ -28,6 +39,11 @@ class ChatActivityStoreClass {
 
 	isStreaming(id: string | null | undefined): boolean {
 		return !!id && this.streamingSessionId === id;
+	}
+
+	/** Mark the session driving the current turn (replaces any prior one). */
+	register(session: ChatSession): void {
+		this.activeSession = session;
 	}
 
 	/** Signal that the chat set changed so chat lists refresh. */

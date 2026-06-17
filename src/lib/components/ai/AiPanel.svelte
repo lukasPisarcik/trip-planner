@@ -58,6 +58,9 @@
 
 	const session = createChatSession();
 
+	// Composer draft, lifted so an EmptyState starter chip can prefill it.
+	let composerText = $state('');
+
 	// Surface failures as a toast (the inline Alert remains the persistent state).
 	let lastErr: unknown = null;
 	$effect(() => {
@@ -97,10 +100,12 @@
 		liveOnly ? session.items : [...messagesToItems(history), ...session.items]
 	);
 
-	// Switching trips resets the panel back to the conversation list.
+	// Switching to a different trip resets the panel back to the conversation list.
+	// Guard on a non-empty slug: navigating AWAY to the standalone /agent workspace
+	// makes the slug empty, and resetting there would stop()/reset() the in-flight
+	// turn we're expanding — leaving the agent page nothing live to adopt.
 	$effect(() => {
-		void tripSlug;
-		resetToList();
+		if (tripSlug) resetToList();
 	});
 	// Each time the panel is closed, return to the list so it reopens fresh.
 	$effect(() => {
@@ -151,8 +156,13 @@
 
 	// Expand the current conversation into the standalone /agent workspace.
 	async function openInAgent() {
-		if (selectedSessionId) {
-			await goto(resolve('/agent/[sessionId]', { sessionId: selectedSessionId }));
+		// Prefer the id learned from the in-flight turn so expanding a brand-new chat
+		// mid-run lands on that session (not a fresh one) — `selectedSessionId` isn't
+		// set until the turn settles. The user message is persisted up front, so the
+		// session-scoped page can already load it.
+		const id = selectedSessionId ?? session.lastSessionId;
+		if (id) {
+			await goto(resolve('/agent/[sessionId]', { sessionId: id }));
 		} else {
 			// eslint-disable-next-line svelte/no-navigation-without-resolve
 			await goto(`${resolve('/agent')}?slug=${encodeURIComponent(tripSlug)}`);
@@ -288,7 +298,11 @@
 								<MessageSquare class="size-3.5 shrink-0 text-muted-foreground" />
 								<span class="min-w-0 flex-1 truncate">{sessionTitle(s.messages)}</span>
 								<span class="shrink-0 text-[10px] text-muted-foreground">
-									{relativeTime(s.updatedAt)}
+									{#if chatActivityStore.isStreaming(s.sessionId)}
+										<span class="text-primary">Working…</span>
+									{:else}
+										{relativeTime(s.updatedAt)}
+									{/if}
 								</span>
 							</button>
 						{/each}
@@ -300,7 +314,7 @@
 				{/if}
 			</div>
 		{:else if items.length === 0}
-			<EmptyState mode="edit-trip" {tripTitle} />
+			<EmptyState mode="edit-trip" {tripTitle} onExample={(text) => (composerText = text)} />
 		{:else}
 			<MessageList
 				{items}
@@ -320,6 +334,7 @@
 			<div class="h-6 bg-gradient-to-t from-background/70 to-transparent"></div>
 			<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
 				<Composer
+					bind:value={composerText}
 					onsend={send}
 					onstop={() => session.stop()}
 					streaming={session.streaming}

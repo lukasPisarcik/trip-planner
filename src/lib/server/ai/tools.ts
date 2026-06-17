@@ -15,6 +15,9 @@ import {
 } from '$lib/schemas';
 import * as tripsService from '../services/trips.service';
 import { findWikimediaImage } from '../services/images.service';
+import { extractSocialPost } from '../services/social.service';
+import { transcribeReel } from '../services/transcribe.service';
+import { PrivateEnvValue } from '../env.server';
 
 function ok(text: string) {
 	return { content: [{ type: 'text' as const, text }] };
@@ -52,6 +55,59 @@ const findImageTool = tool(
 		} catch (e) {
 			log.error({ err: e }, 'find_image failed');
 			return err(e instanceof Error ? e.message : 'image lookup failed');
+		}
+	}
+);
+
+const extractSocialPostTool = tool(
+	'extract_social_post',
+	'Extract details from a TikTok or Instagram post/reel URL the traveler shared (pasted in chat or ' +
+		'left in their brainstorm notes). Returns JSON `{ platform, author, caption, thumbnailUrl, ' +
+		'sourceUrl }` — fields beyond `sourceUrl` may be missing. Use the caption to classify the post: ' +
+		'a restaurant, cafe or bar → add it to the Restaurants tab (`replace_restaurants`) with `source` ' +
+		'set to "tiktok"/"instagram", `socialUrl` set to the post URL, and a `mapUrl`; a sight, viewpoint ' +
+		'or landmark → add it to Viral Spots (`replace_viral`), also setting `source`+`socialUrl`. For a ' +
+		'travel/food reel, also call `transcribe_reel` to capture place names spoken in the video. Always ' +
+		'call `find_image` for the venue/landmark name to attach a durable photo; only fall back to ' +
+		'`thumbnailUrl` if `find_image` finds nothing. If extraction fails (Instagram login walls are ' +
+		'common), ask the traveler to paste the caption text instead.',
+	{ url: z.url() },
+	async ({ url }) => {
+		try {
+			const post = await extractSocialPost(url);
+			return post
+				? ok(JSON.stringify(post))
+				: ok(
+						'Could not extract that post (it may be private, removed, or behind a login wall). ' +
+							'Ask the traveler to paste the caption text instead.'
+					);
+		} catch (e) {
+			log.error({ err: e }, 'extract_social_post failed');
+			return err(e instanceof Error ? e.message : 'extraction failed');
+		}
+	}
+);
+
+const transcribeReelTool = tool(
+	'transcribe_reel',
+	'Transcribe the spoken voiceover of a TikTok or Instagram reel — for travel/food reels the ' +
+		'narration usually names the places, so this is the richest signal. Returns the transcript ' +
+		'text, or a "not available" message. Runs locally; pair it with `extract_social_post`, and if ' +
+		'it returns nothing just work from the caption.',
+	{ url: z.url() },
+	async ({ url }) => {
+		try {
+			const transcript = await transcribeReel(url, {
+				ytDlpPath: PrivateEnvValue('YT_DLP_PATH'),
+				whisperCliPath: PrivateEnvValue('WHISPER_CLI_PATH'),
+				modelPath: PrivateEnvValue('WHISPER_MODEL_PATH')
+			});
+			return transcript
+				? ok(transcript)
+				: ok('Transcription unavailable for this reel — work from the caption instead.');
+		} catch (e) {
+			log.error({ err: e }, 'transcribe_reel failed');
+			return err(e instanceof Error ? e.message : 'transcription failed');
 		}
 	}
 );
@@ -215,6 +271,8 @@ const replaceRestaurantsTool = tool(
 export const tripToolDefs = [
 	getTripTool,
 	findImageTool,
+	extractSocialPostTool,
+	transcribeReelTool,
 	askUserTool,
 	updateTripFieldsTool,
 	createTripTool,

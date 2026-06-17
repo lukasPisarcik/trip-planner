@@ -147,6 +147,25 @@ export const ImageSchema = z.object({
 });
 export type TripImage = z.infer<typeof ImageSchema>;
 
+// Where a place/spot was discovered. Shared by restaurants and viral spots so a
+// reel/post imported by the co-pilot keeps its platform attribution + link.
+export const RestaurantSourceSchema = z.enum(['tiktok', 'instagram', 'google', 'local']);
+
+// Structured result of extracting a TikTok / Instagram post — produced by the
+// `extract_social_post` tool. The agent maps it into a restaurant or viral spot.
+// Fields beyond `sourceUrl` may be missing (e.g. Instagram login walls).
+export const SocialPlatformSchema = z.enum(['tiktok', 'instagram']);
+export type SocialPlatform = z.infer<typeof SocialPlatformSchema>;
+
+export const SocialPostSchema = z.object({
+	platform: SocialPlatformSchema,
+	author: z.string().optional(),
+	caption: z.string().optional(),
+	thumbnailUrl: z.url().optional(),
+	sourceUrl: z.url()
+});
+export type SocialPost = z.infer<typeof SocialPostSchema>;
+
 export const ViralSpotSchema = z.object({
 	color: ViralColorSchema,
 	heat: HeatLevelSchema,
@@ -155,6 +174,10 @@ export const ViralSpotSchema = z.object({
 	location: z.string(),
 	description: z.string(),
 	tags: z.array(z.string()),
+	// Set when the spot was imported from a TikTok/Instagram post — renders a
+	// clickable source badge on the viral card (mirrors restaurants).
+	source: RestaurantSourceSchema.optional(),
+	socialUrl: z.url().optional(),
 	image: ImageSchema.optional()
 });
 
@@ -164,7 +187,6 @@ export const ViralSectionSchema = z.object({
 });
 
 export const RestaurantCategorySchema = z.enum(['food', 'coffee', 'bar']);
-export const RestaurantSourceSchema = z.enum(['tiktok', 'instagram', 'google', 'local']);
 export const PriceLevelSchema = z.enum(['€', '€€', '€€€', '€€€€']);
 
 export const RestaurantSchema = z.object({
@@ -508,7 +530,11 @@ export const ChatRequestSchema = z.object({
 	// Force a brand-new conversation even on a trip page. Without this, a trip-scoped
 	// turn with no sessionId resumes the trip's latest thread (getOrCreateChat) — which
 	// is wrong when the user explicitly started a "New chat".
-	newChat: z.boolean().optional()
+	newChat: z.boolean().optional(),
+	// Client-generated id for the user message. The client renders its live echo with
+	// this id and the server persists the message with it, so a surface that loads the
+	// (already persisted) message and also shows the live turn can dedupe the two.
+	messageId: z.string().optional()
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

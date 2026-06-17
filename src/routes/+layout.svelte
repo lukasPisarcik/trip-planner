@@ -29,9 +29,23 @@
 
 	const tripsQuery = useQuery(api.trips.listTrips, {});
 	const tripSlug = $derived(page.params.slug);
-	const currentTrip = $derived<Trip | undefined>(
-		tripSlug ? ((tripsQuery.data ?? []) as Trip[]).find((t) => t.slug === tripSlug) : undefined
-	);
+	// Resolve the trip from the live query, but hold the last resolved value while the
+	// subscription momentarily reports `undefined` (a transient refetch/reconnect —
+	// e.g. when a co-pilot turn refreshes chat lists). Deriving straight from
+	// `tripsQuery.data` would flip `currentTrip` to undefined on every such blip,
+	// unmounting and remounting the whole AI panel (gated on `aiPanelAvailable`) and
+	// dropping its in-flight conversation.
+	let currentTrip = $state<Trip | undefined>(undefined);
+	$effect(() => {
+		const slug = tripSlug;
+		if (!slug) {
+			currentTrip = undefined;
+			return;
+		}
+		const trips = tripsQuery.data as Trip[] | undefined;
+		if (trips === undefined) return; // loading/transient: keep the last resolved trip
+		currentTrip = trips.find((t) => t.slug === slug);
+	});
 
 	// The standalone agent workspace is itself a full chat surface — don't also
 	// float the slide-in panel over it.
