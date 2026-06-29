@@ -92,6 +92,8 @@ export interface ViralSpot {
 	/** Set when imported from a TikTok/Instagram post — shows a source badge. */
 	source?: RestaurantSource;
 	socialUrl?: string;
+	/** When set, the spot is plotted on the trip map backdrop. */
+	coords?: Coords;
 	image?: {
 		url: string;
 		alt: string;
@@ -123,6 +125,8 @@ export interface Restaurant {
 	source?: RestaurantSource;
 	socialUrl?: string;
 	mapUrl?: string;
+	/** When set, the place is plotted on the trip map backdrop. */
+	coords?: Coords;
 	image?: {
 		url: string;
 		alt: string;

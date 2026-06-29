@@ -51,4 +51,7 @@ server-results.xml
 browser-results.xml
 .playwright-mcp/
 
+# Implementation plans (local design docs, per-author)
+.plans/
+
 # other

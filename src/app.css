@@ -88,6 +88,13 @@
 
 	--trip-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
 
+	/* Liquid-glass surfaces floating over the live map backdrop. Light tiles, so
+	   a bright, fairly opaque tint keeps text legible. */
+	--glass-bg: rgba(255, 255, 255, 0.62);
+	--glass-stroke: rgba(255, 255, 255, 0.7);
+	--glass-blur: 20px;
+	--glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+
 	/* shadcn HSL mapping (warm cream surface) */
 	--background: 40 33% 97%; /* #faf8f4 */
 	--foreground: 24 12% 10%;
@@ -180,6 +187,13 @@
 
 	--trip-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
 
+	/* Glass over dark tiles — a darker, slightly more translucent tint with a
+	   brighter hairline so panels still read as frosted glass, not solid cards. */
+	--glass-bg: rgba(28, 25, 23, 0.55);
+	--glass-stroke: rgba(255, 255, 255, 0.12);
+	--glass-blur: 20px;
+	--glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+
 	--background: 24 8% 9%;
 	--foreground: 40 33% 93%;
 
@@ -247,6 +261,17 @@
 }
 
 @layer components {
+	/* Frosted translucent panel used by the trip map backdrop's hero, tab bar and
+	   content surfaces. Tailwind-first: apply `class="glass"` and layer normal
+	   utilities on top. Tokens flip per theme (see :root / [data-theme]). */
+	.glass {
+		background: var(--glass-bg);
+		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+		backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+		border: 1px solid var(--glass-stroke);
+		box-shadow: var(--glass-shadow);
+	}
+
 	[data-slot='popover-content'],
 	[data-slot='command'],
 	[data-slot='select-content'],

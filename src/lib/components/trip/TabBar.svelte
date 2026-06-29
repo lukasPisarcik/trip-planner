@@ -6,11 +6,14 @@
 	let {
 		tabs,
 		active,
-		onselect
+		onselect,
+		glass = false
 	}: {
 		tabs: TabDef[];
 		active: string;
 		onselect: (id: string) => void;
+		/** Frosted translucent styling, for when the bar floats over the map backdrop. */
+		glass?: boolean;
 	} = $props();
 
 	let scroller = $state<HTMLDivElement>();
@@ -48,7 +51,7 @@
 	});
 </script>
 
-<div class="tab-wrap" data-at-start={atStart} data-at-end={atEnd}>
+<div class="tab-wrap" class:glass-mode={glass} data-at-start={atStart} data-at-end={atEnd}>
 	<div class="tabs" bind:this={scroller} onscroll={updateEdges}>
 		{#each tabs as tab (tab.id)}
 			<button
@@ -66,11 +69,21 @@
 
 <style>
 	.tab-wrap {
+		/* `--tab-bar-top` lets the parent pin the bar below the collapsed map peek;
+		   falls back to the header height when there's no backdrop. */
 		position: sticky;
-		top: 3.5rem; /* header h-14 */
+		top: var(--tab-bar-top, 3.5rem); /* header h-14 */
 		z-index: 15;
 		background: var(--white);
 		border-bottom: 1px solid var(--trip-border);
+		--tab-fade-color: var(--white);
+	}
+	.tab-wrap.glass-mode {
+		background: var(--glass-bg);
+		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+		backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+		border-bottom: 1px solid var(--glass-stroke);
+		--tab-fade-color: var(--glass-bg);
 	}
 	.tabs {
 		display: flex;
@@ -124,11 +137,11 @@
 	}
 	.tab-wrap::before {
 		left: 0;
-		background: linear-gradient(to right, var(--white), transparent);
+		background: linear-gradient(to right, var(--tab-fade-color), transparent);
 	}
 	.tab-wrap::after {
 		right: 0;
-		background: linear-gradient(to left, var(--white), transparent);
+		background: linear-gradient(to left, var(--tab-fade-color), transparent);
 	}
 	.tab-wrap:not([data-at-start='true'])::before {
 		opacity: 1;
