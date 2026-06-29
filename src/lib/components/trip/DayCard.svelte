@@ -1,39 +1,30 @@
 <script lang="ts">
 	import type { Day } from '$lib/trips';
-	import DayMap, { type DayMapPoint } from './DayMap.svelte';
 
-	let { day }: { day: Day } = $props();
+	let { day, onfocusday }: { day: Day; onfocusday?: (day: Day) => void } = $props();
 	// svelte-ignore state_referenced_locally
 	let open = $state(day.defaultOpen ?? false);
 
-	// Number the stops that have coordinates (in itinerary order) and split them
-	// into walking stretches — a transport leg without coords ends one stretch so
-	// the map never draws a connecting line across a bus/train ride.
-	const mapData = $derived.by(() => {
-		const numbers: (number | null)[] = [];
-		const segments: DayMapPoint[][] = [];
-		let current: DayMapPoint[] = [];
+	// Number the coord-bearing stops (in itinerary order) so the badges match the
+	// numbered markers the map backdrop draws when this day is focused.
+	const numbers = $derived.by(() => {
+		const out: (number | null)[] = [];
 		let n = 0;
-		for (const item of day.items) {
-			if (item.coords) {
-				n += 1;
-				numbers.push(n);
-				current.push({ ...item.coords, n, title: item.title, icon: item.icon });
-			} else {
-				numbers.push(null);
-				if (item.kind === 'leg' && current.length) {
-					segments.push(current);
-					current = [];
-				}
-			}
-		}
-		if (current.length) segments.push(current);
-		return { numbers, segments, hasMap: n > 0 };
+		for (const item of day.items) out.push(item.coords ? (n += 1) : null);
+		return out;
 	});
+
+	const hasCoords = $derived(day.items.some((i) => i.coords));
+
+	function toggle() {
+		open = !open;
+		// Opening a day with stops flies the persistent backdrop to that day's route.
+		if (open && hasCoords) onfocusday?.(day);
+	}
 </script>
 
 <div class="day-card" class:open>
-	<button type="button" class="day-header" onclick={() => (open = !open)} aria-expanded={open}>
+	<button type="button" class="day-header" onclick={toggle} aria-expanded={open}>
 		<div class="day-pill">
 			{day.number}<span>{day.date}</span>
 		</div>
@@ -46,14 +37,11 @@
 	</button>
 	{#if open}
 		<div class="day-body">
-			{#if mapData.hasMap}
-				<DayMap segments={mapData.segments} />
-			{/if}
 			{#each day.items as item, i (i)}
 				{#if item.kind === 'leg'}
 					<div class="leg">
-						{#if mapData.numbers[i] != null}
-							<div class="stop-num">{mapData.numbers[i]}</div>
+						{#if numbers[i] != null}
+							<div class="stop-num">{numbers[i]}</div>
 						{:else}
 							<div class="leg-icon">{item.icon}</div>
 						{/if}
@@ -67,8 +55,8 @@
 					</div>
 				{:else}
 					<div class="activity">
-						{#if mapData.numbers[i] != null}
-							<div class="stop-num">{mapData.numbers[i]}</div>
+						{#if numbers[i] != null}
+							<div class="stop-num">{numbers[i]}</div>
 						{:else}
 							<div class="act-icon">{item.icon}</div>
 						{/if}
