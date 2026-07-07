@@ -10,14 +10,21 @@
 		layers,
 		height,
 		interactive = false,
+		hiddenTop = 0,
 		class: className = ''
 	}: {
 		/** The constant marker set (all coord-bearing spots). */
 		layers: MapLayers;
-		/** Container height in px; every change re-tiles the map via invalidateSize. */
+		/** Container height in px; changes only on resize/fullscreen (re-tiles via invalidateSize). */
 		height: number;
 		/** Pan/zoom enabled (expanded or fullscreen) vs. a static backdrop (collapsed). */
 		interactive?: boolean;
+		/**
+		 * Px of the map's top edge scrolled out of view (the stage slides under the
+		 * app header until only a peek remains). Read at fit time so focus/reset
+		 * target the still-visible bottom slice of the canvas.
+		 */
+		hiddenTop?: number;
 		class?: string;
 	} = $props();
 
@@ -64,11 +71,24 @@
 
 	const allBounds = $derived(boundsOf(layers.spots));
 
+	/**
+	 * Fit paddings that respect `hiddenTop`: when the page is scrolled, the
+	 * visible window is the BOTTOM slice of the canvas, so the top padding grows
+	 * by the hidden amount (with a tighter inset, since the slice is short).
+	 */
+	function fitPadding(base: number) {
+		const inset = hiddenTop > 0 ? 12 : base;
+		return {
+			paddingTopLeft: [base, hiddenTop + inset] as [number, number],
+			paddingBottomRight: [base, inset] as [number, number]
+		};
+	}
+
 	/** Bounds of every spot, fit (animated unless reduced motion). */
 	function fitAll(animate = true) {
 		if (!map || !L || !allBounds) return;
 		map.fitBounds(L.latLngBounds(allBounds), {
-			padding: [48, 48],
+			...fitPadding(48),
 			maxZoom: 14,
 			animate: animate && !prefersReducedMotion()
 		});
@@ -143,7 +163,7 @@
 		}
 		if (f.bounds) {
 			const b = L.latLngBounds(f.bounds);
-			const opts = { padding: [56, 56] as [number, number], maxZoom: 16 };
+			const opts = { ...fitPadding(56), maxZoom: 16 };
 			if (prefersReducedMotion()) map.fitBounds(b, { ...opts, animate: false });
 			else map.flyToBounds(b, { ...opts, duration: 0.8 });
 		}
@@ -164,9 +184,11 @@
 
 			map = L.map(mapEl, {
 				scrollWheelZoom: false,
-				zoomControl: true,
+				// Bottom-right: the glass hero owns the top-left of the stage.
+				zoomControl: false,
 				attributionControl: true
 			});
+			L.control.zoom({ position: 'bottomright' }).addTo(map);
 			tiles = L.tileLayer(themeStore.current === 'dark' ? TILES.dark : TILES.light, {
 				subdomains: 'abcd',
 				maxZoom: 20,
@@ -227,8 +249,15 @@
 	});
 </script>
 
+<!-- relative + isolate contain Leaflet's high-z-index panes in their own
+     stacking context, so they don't paint over the glass hero / controls.
+     Non-interactive backdrop gets pointer-events:none so page scroll passes
+     through. The `interactive` class is a hook for the Leaflet-injected DOM
+     rules below (which can't be styled with utilities). -->
 <div
-	class="trip-map {className}"
+	class="trip-map relative isolate w-full bg-(--cream) {interactive
+		? 'pointer-events-auto'
+		: 'pointer-events-none'} {className}"
 	class:interactive
 	style="height: {height}px"
 	bind:this={mapEl}
@@ -236,19 +265,12 @@
 	aria-label="Map of the trip's spots"
 ></div>
 
+<!-- Scoped CSS below styles Leaflet-injected DOM only (markers, popups,
+     controls) — utilities can't reach runtime-injected elements. -->
 <style>
-	.trip-map {
-		width: 100%;
-		background: var(--cream);
-		/* Contain Leaflet's high-z-index panes in their own stacking context, so
-		   they don't paint over the glass hero / controls layered above the map. */
-		position: relative;
-		isolation: isolate;
-		/* Collapsed backdrop is non-interactive so page scroll passes through. */
-		pointer-events: none;
-	}
-	.trip-map.interactive {
-		pointer-events: auto;
+	/* Zoom buttons are meaningless (and in the way) on the static backdrop. */
+	.trip-map:not(.interactive) :global(.leaflet-control-zoom) {
+		display: none;
 	}
 	.trip-map :global(.leaflet-container) {
 		height: 100%;

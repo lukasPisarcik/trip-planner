@@ -36,14 +36,22 @@
 			color: barColors[i % barColors.length]
 		}));
 	});
+
+	const headCellClass =
+		'border-b border-(--trip-border) bg-(--cream) px-3.5 py-2 text-[10px] font-bold tracking-[0.08em] uppercase text-(--ink3)';
+	const rowCellClass = 'border-b border-(--trip-border) bg-(--white) px-3.5 py-2.5 text-[12.5px]';
+	const totalCellClass =
+		'border-t-2 border-t-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-3.5 py-2.5 text-[12.5px] font-bold text-(--ink)';
 </script>
 
-<div class="style-row">
+<div class="mb-5 flex flex-wrap gap-2">
 	{#each data.variants as v (v.id)}
 		<button
 			type="button"
-			class="sbtn"
-			class:active={v.id === activeId}
+			class="cursor-pointer rounded-[20px] border px-4 py-1.5 text-[12.5px] [transition:all_0.15s] {v.id ===
+			activeId
+				? 'border-[var(--trip-accent,var(--sage))] bg-[var(--trip-accent,var(--sage))] text-white'
+				: 'border-(--trip-border) bg-(--white) text-(--ink2)'}"
 			onclick={() => (activeId = v.id)}
 		>
 			{v.label}
@@ -52,206 +60,71 @@
 </div>
 
 {#if active}
-	<div class="total-hero">
+	<div
+		class="mb-6 flex flex-wrap items-center gap-6 rounded-[10px] bg-(--total-bg) px-6 py-5 text-(--white)"
+	>
 		<div>
-			<div class="lbl">Estimated total · solo</div>
-			<div class="big">{active.total}</div>
+			<div class="text-[11px] tracking-[0.08em] text-(--ink3) uppercase">
+				Estimated total · solo
+			</div>
+			<div class="font-serif text-[2.8rem] text-[var(--trip-accent-strong,var(--total-amount))]">
+				{active.total}
+			</div>
 		</div>
-		<div class="info">
-			<div class="note">{active.daily}</div>
-			<div class="note tiny">{data.totalNote}</div>
+		<div class="flex-1">
+			<div class="mt-1 text-[12px] text-(--total-info)">{active.daily}</div>
+			<div class="mt-2 text-[11px] text-(--total-meta)">{data.totalNote}</div>
 		</div>
 	</div>
 
-	<div class="brow">
-		<div class="brow-head">
-			<div>Category</div>
-			<div>Details</div>
-			<div>Cost</div>
+	<div
+		class="mb-5 grid w-full grid-cols-[1fr_2fr_auto] overflow-hidden rounded-[10px] border border-(--trip-border)"
+	>
+		<div class="contents">
+			<div class={headCellClass}>Category</div>
+			<div class={headCellClass}>Details</div>
+			<div class={headCellClass}>Cost</div>
 		</div>
 		{#each active.rows as row, i (i)}
-			<div class="brow-row">
-				<div>{row.category}</div>
-				<div>{row.details}</div>
-				<div>{row.amount}</div>
+			<div class="contents">
+				<div class="{rowCellClass} font-semibold text-(--ink)">{row.category}</div>
+				<div class="{rowCellClass} text-(--ink2)">{row.details}</div>
+				<div class="{rowCellClass} text-right font-bold text-[var(--trip-accent,var(--sage))]">
+					{row.amount}
+				</div>
 			</div>
 		{/each}
-		<div class="brow-row brow-total">
-			<div>Total</div>
-			<div>All-in estimate (solo)</div>
-			<div>{active.total}</div>
+		<div class="contents">
+			<div class={totalCellClass}>Total</div>
+			<div class={totalCellClass}>All-in estimate (solo)</div>
+			<div class="{totalCellClass} text-right text-[var(--trip-accent,var(--sage))]">
+				{active.total}
+			</div>
 		</div>
 	</div>
 
-	<div class="bar-section">
-		<h4>Spending breakdown</h4>
+	<div>
+		<h4 class="mb-3 text-[10px] font-bold tracking-[0.1em] text-(--ink3) uppercase">
+			Spending breakdown
+		</h4>
 		{#each bars as bar, i (i)}
-			<div class="bar-row">
-				<div class="bar-lbl">{bar.label}</div>
-				<div class="bar-track">
-					<div class="bar-fill" style:width="{bar.pct}%" style:background={bar.color}></div>
+			<div class="mb-2 flex items-center gap-2.5">
+				<div class="w-[130px] shrink-0 text-[12px] text-(--ink2)">{bar.label}</div>
+				<div
+					class="h-[7px] flex-1 overflow-hidden rounded-sm border border-(--trip-border) bg-(--cream)"
+				>
+					<div
+						class="h-full rounded-sm [transition:width_0.5s_ease]"
+						style:width="{bar.pct}%"
+						style:background={bar.color}
+					></div>
 				</div>
-				<div class="bar-val">{bar.amount}</div>
+				<div
+					class="w-[60px] shrink-0 text-right text-[12px] font-semibold text-[var(--trip-accent,var(--sage))]"
+				>
+					{bar.amount}
+				</div>
 			</div>
 		{/each}
 	</div>
 {/if}
-
-<style>
-	.style-row {
-		display: flex;
-		gap: 8px;
-		margin-bottom: 20px;
-		flex-wrap: wrap;
-	}
-	.sbtn {
-		padding: 6px 16px;
-		border-radius: 20px;
-		border: 1px solid var(--trip-border);
-		background: var(--white);
-		color: var(--ink2);
-		font-size: 12.5px;
-		font-family: inherit;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-	.sbtn.active {
-		background: var(--trip-accent, var(--sage));
-		border-color: var(--trip-accent, var(--sage));
-		color: #ffffff;
-	}
-	.total-hero {
-		background: var(--total-bg);
-		color: var(--white);
-		border-radius: 10px;
-		padding: 20px 24px;
-		margin-bottom: 24px;
-		display: flex;
-		align-items: center;
-		gap: 24px;
-		flex-wrap: wrap;
-	}
-	.total-hero .big {
-		font-family: var(--font-serif);
-		font-size: 2.8rem;
-		color: var(--trip-accent-strong, var(--total-amount));
-	}
-	.total-hero .lbl {
-		font-size: 11px;
-		color: var(--ink3);
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-	.total-hero .info {
-		flex: 1;
-	}
-	.total-hero .note {
-		font-size: 12px;
-		color: var(--total-info);
-		margin-top: 4px;
-	}
-	.total-hero .note.tiny {
-		font-size: 11px;
-		color: var(--total-meta);
-		margin-top: 8px;
-	}
-
-	.brow {
-		display: grid;
-		grid-template-columns: 1fr 2fr auto;
-		gap: 0;
-		width: 100%;
-		border: 1px solid var(--trip-border);
-		border-radius: 10px;
-		overflow: hidden;
-		margin-bottom: 20px;
-	}
-	.brow-head {
-		display: contents;
-	}
-	.brow-head > div {
-		background: var(--cream);
-		padding: 8px 14px;
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--ink3);
-		border-bottom: 1px solid var(--trip-border);
-	}
-	.brow-row {
-		display: contents;
-	}
-	.brow-row > div {
-		padding: 10px 14px;
-		font-size: 12.5px;
-		border-bottom: 1px solid var(--trip-border);
-		background: var(--white);
-	}
-	.brow-row:last-child > div {
-		border-bottom: none;
-	}
-	.brow-row > div:first-child {
-		font-weight: 600;
-		color: var(--ink);
-	}
-	.brow-row > div:nth-child(2) {
-		color: var(--ink2);
-	}
-	.brow-row > div:last-child {
-		color: var(--trip-accent, var(--sage));
-		font-weight: 700;
-		text-align: right;
-	}
-	.brow-total > div {
-		background: var(--trip-accent-lt, var(--sage-lt)) !important;
-		font-weight: 700 !important;
-		color: var(--ink) !important;
-		border-top: 2px solid var(--trip-accent-md, var(--sage-md)) !important;
-	}
-	.brow-total > div:last-child {
-		color: var(--trip-accent, var(--sage)) !important;
-	}
-
-	.bar-section h4 {
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink3);
-		margin-bottom: 12px;
-	}
-	.bar-row {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		margin-bottom: 8px;
-	}
-	.bar-lbl {
-		font-size: 12px;
-		color: var(--ink2);
-		width: 130px;
-		flex-shrink: 0;
-	}
-	.bar-track {
-		flex: 1;
-		height: 7px;
-		background: var(--cream);
-		border-radius: 4px;
-		overflow: hidden;
-		border: 1px solid var(--trip-border);
-	}
-	.bar-fill {
-		height: 100%;
-		border-radius: 4px;
-		transition: width 0.5s ease;
-	}
-	.bar-val {
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--trip-accent, var(--sage));
-		width: 60px;
-		text-align: right;
-		flex-shrink: 0;
-	}
-</style>

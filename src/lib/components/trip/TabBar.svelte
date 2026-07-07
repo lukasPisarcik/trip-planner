@@ -51,13 +51,30 @@
 	});
 </script>
 
-<div class="tab-wrap" class:glass-mode={glass} data-at-start={atStart} data-at-end={atEnd}>
-	<div class="tabs" bind:this={scroller} onscroll={updateEdges}>
+<!-- `--tab-bar-top` lets the parent pin the bar below the collapsed map peek;
+     falls back to the header height (h-14) when there's no backdrop. The
+     before/after gradients are fade hints that more tabs exist beyond the
+     scroll edges. -->
+<div
+	class="sticky top-[var(--tab-bar-top,3.5rem)] z-15 border-b before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-0 before:z-1 before:w-7 before:bg-[linear-gradient(to_right,var(--tab-fade-color),transparent)] before:opacity-0 before:content-[''] before:[transition:opacity_0.15s] after:pointer-events-none after:absolute after:top-0 after:right-0 after:bottom-0 after:z-1 after:w-7 after:bg-[linear-gradient(to_left,var(--tab-fade-color),transparent)] after:opacity-0 after:content-[''] after:[transition:opacity_0.15s] data-[at-end=false]:after:opacity-100 data-[at-start=false]:before:opacity-100 {glass
+		? 'border-(--glass-stroke) bg-(--glass-bg) backdrop-blur-[var(--glass-blur)] backdrop-saturate-160 [--tab-fade-color:var(--glass-bg)]'
+		: 'border-(--trip-border) bg-(--white) [--tab-fade-color:var(--white)]'}"
+	data-at-start={atStart}
+	data-at-end={atEnd}
+>
+	<div
+		class="flex [scrollbar-width:none] overflow-x-auto overscroll-x-contain scroll-smooth px-10 max-sm:px-4 [&::-webkit-scrollbar]:hidden"
+		bind:this={scroller}
+		onscroll={updateEdges}
+	>
 		{#each tabs as tab (tab.id)}
+			<!-- flex-none: never shrink — overflow scrolls instead of squishing labels -->
 			<button
 				type="button"
-				class="tab"
-				class:active={active === tab.id}
+				class="flex-none cursor-pointer appearance-none border-0 border-b-2 bg-transparent px-[18px] py-3.5 text-[13px] font-medium whitespace-nowrap [transition:color_0.15s,border-color_0.15s] max-sm:px-3.5 max-sm:py-3 {active ===
+				tab.id
+					? 'border-b-[var(--trip-accent,var(--sage))] text-[var(--trip-accent,var(--sage))]'
+					: 'border-b-transparent text-(--ink3) hover:text-(--ink2)'}"
 				data-id={tab.id}
 				onclick={() => onselect(tab.id)}
 			>
@@ -66,96 +83,3 @@
 		{/each}
 	</div>
 </div>
-
-<style>
-	.tab-wrap {
-		/* `--tab-bar-top` lets the parent pin the bar below the collapsed map peek;
-		   falls back to the header height when there's no backdrop. */
-		position: sticky;
-		top: var(--tab-bar-top, 3.5rem); /* header h-14 */
-		z-index: 15;
-		background: var(--white);
-		border-bottom: 1px solid var(--trip-border);
-		--tab-fade-color: var(--white);
-	}
-	.tab-wrap.glass-mode {
-		background: var(--glass-bg);
-		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-		backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-		border-bottom: 1px solid var(--glass-stroke);
-		--tab-fade-color: var(--glass-bg);
-	}
-	.tabs {
-		display: flex;
-		gap: 0;
-		padding: 0 40px;
-		overflow-x: auto;
-		overscroll-behavior-x: contain;
-		scroll-behavior: smooth;
-		scrollbar-width: none;
-	}
-	.tabs::-webkit-scrollbar {
-		display: none;
-	}
-	.tab {
-		flex: 0 0 auto; /* never shrink — overflow scrolls instead of squishing labels */
-		appearance: none;
-		background: none;
-		border: 0;
-		font-family: inherit;
-		padding: 14px 18px;
-		font-size: 13px;
-		font-weight: 500;
-		color: var(--ink3);
-		cursor: pointer;
-		border-bottom: 2px solid transparent;
-		white-space: nowrap;
-		transition:
-			color 0.15s,
-			border-color 0.15s;
-	}
-	.tab:hover {
-		color: var(--ink2);
-	}
-	.tab.active {
-		color: var(--trip-accent, var(--sage));
-		border-bottom-color: var(--trip-accent, var(--sage));
-	}
-
-	/* Fade hints that more tabs exist beyond the scroll edges. */
-	.tab-wrap::before,
-	.tab-wrap::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 28px;
-		pointer-events: none;
-		z-index: 1;
-		opacity: 0;
-		transition: opacity 0.15s;
-	}
-	.tab-wrap::before {
-		left: 0;
-		background: linear-gradient(to right, var(--tab-fade-color), transparent);
-	}
-	.tab-wrap::after {
-		right: 0;
-		background: linear-gradient(to left, var(--tab-fade-color), transparent);
-	}
-	.tab-wrap:not([data-at-start='true'])::before {
-		opacity: 1;
-	}
-	.tab-wrap:not([data-at-end='true'])::after {
-		opacity: 1;
-	}
-
-	@media (max-width: 640px) {
-		.tabs {
-			padding: 0 16px;
-		}
-		.tab {
-			padding: 12px 14px;
-		}
-	}
-</style>

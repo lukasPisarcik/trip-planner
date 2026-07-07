@@ -51,82 +51,28 @@
 	}
 </script>
 
-<div class="bs">
-	<div class="bs-head">
+<div class="flex flex-col gap-3.5">
+	<div class="flex items-start justify-between gap-3">
 		<div>
-			<div class="bs-title">💭 Brainstorm</div>
-			<div class="bs-sub">
+			<div class="text-[16px] font-bold text-(--ink)">💭 Brainstorm</div>
+			<div class="mt-[3px] max-w-[60ch] text-[12.5px] leading-normal text-(--ink3)">
 				Dump ideas, links, and findings here — the AI co-pilot reads this when planning. Auto-saves
 				as you type.
 			</div>
 		</div>
-		<span class="bs-status" data-status={status}>
+		<span
+			class="pt-[3px] text-[11px] font-semibold whitespace-nowrap text-(--ink3) data-[status=saved]:text-(--sage)"
+			data-status={status}
+		>
 			{#if status === 'saving'}Saving…{:else if status === 'saved'}Saved ✓{/if}
 		</span>
 	</div>
 
 	<textarea
-		class="bs-area"
+		class="min-h-[60vh] w-full resize-y rounded-xl border border-(--trip-border) bg-(--white) px-[18px] py-4 text-sm leading-[1.7] text-(--ink) placeholder:text-(--ink3) focus:border-[var(--trip-accent,var(--sage))] focus:shadow-[0_0_0_3px_var(--trip-accent-lt,var(--sage-lt))] focus:outline-none"
 		bind:value={draft}
 		oninput={onInput}
 		onblur={onBlur}
 		placeholder="Must-see spots, TikTok/Instagram links, hikes, restaurant names, budget caps, packing reminders, open questions…"
 	></textarea>
 </div>
-
-<style>
-	.bs {
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
-	}
-	.bs-head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
-	}
-	.bs-title {
-		font-size: 16px;
-		font-weight: 700;
-		color: var(--ink);
-	}
-	.bs-sub {
-		font-size: 12.5px;
-		color: var(--ink3);
-		margin-top: 3px;
-		max-width: 60ch;
-		line-height: 1.5;
-	}
-	.bs-status {
-		font-size: 11px;
-		font-weight: 600;
-		color: var(--ink3);
-		white-space: nowrap;
-		padding-top: 3px;
-	}
-	.bs-status[data-status='saved'] {
-		color: var(--sage);
-	}
-	.bs-area {
-		width: 100%;
-		min-height: 60vh;
-		resize: vertical;
-		background: var(--white);
-		border: 1px solid var(--trip-border);
-		border-radius: 12px;
-		padding: 16px 18px;
-		font-family: inherit;
-		font-size: 14px;
-		line-height: 1.7;
-		color: var(--ink);
-	}
-	.bs-area:focus {
-		outline: none;
-		border-color: var(--trip-accent, var(--sage));
-		box-shadow: 0 0 0 3px var(--trip-accent-lt, var(--sage-lt));
-	}
-	.bs-area::placeholder {
-		color: var(--ink3);
-	}
-</style>

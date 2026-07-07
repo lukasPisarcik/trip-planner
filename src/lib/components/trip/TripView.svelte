@@ -68,11 +68,17 @@
 
 	// Expanded height is capped so it never dominates short viewports.
 	const expanded = $derived(Math.min(520, Math.round(innerH * 0.52)));
-	const mapHeight = $derived(
-		fullscreen ? Math.round(innerH * 0.88) : Math.max(COLLAPSED, expanded - scrollY)
-	);
+	// The stage's layout height is CONSTANT — it scrolls away naturally (sticky
+	// with a negative top, see .map-stage) until only the COLLAPSED peek stays
+	// pinned under the header. Never tie this to scrollY: shrinking the sticky
+	// stage per scroll frame resizes the document mid-scroll (scroll-anchoring
+	// feedback loop) and forces Leaflet to re-tile every frame.
+	const mapHeight = $derived(fullscreen ? Math.round(innerH * 0.88) : expanded);
+	// How much of the map's top has scrolled out of view — lets fitBounds target
+	// the still-visible bottom slice when a day is focused from a scrolled page.
+	const hiddenTop = $derived(fullscreen ? 0 : Math.max(0, Math.min(scrollY, expanded - COLLAPSED)));
 	// Past the collapse point the hero condenses and the map goes static.
-	const scrolled = $derived(!fullscreen && scrollY > expanded - COLLAPSED - 40);
+	const scrolled = $derived(!fullscreen && scrollY > (expanded - COLLAPSED) * 0.6);
 	// Pan/zoom only when there's room to interact (top of page or fullscreen).
 	const interactive = $derived(fullscreen || (!scrolled && hasMap));
 
@@ -80,8 +86,8 @@
 		fullscreen = !fullscreen;
 	}
 
-	// rAF-throttled window scroll → scrollY (the page scrolls on the body; the
-	// sticky backdrop shrinks as it rises). Also tracks viewport height.
+	// rAF-throttled window scroll → scrollY, which only drives cheap state (the
+	// `scrolled` boolean + `hiddenTop`) — never layout. Also tracks viewport height.
 	$effect(() => {
 		innerH = window.innerHeight;
 		scrollY = window.scrollY;
@@ -124,27 +130,50 @@
 			`--tab-bar-top: ${hasMap ? `${HEADER_H + COLLAPSED}px` : '3.5rem'}`
 		].join('; ')
 	);
+
+	// The stage stacks the map, glass hero and controls in one grid cell. Normal
+	// mode: sticky with a NEGATIVE top so it scrolls away naturally, sticking once
+	// only the COLLAPSED peek shows under the header. z-2 keeps the opaque peek
+	// above the content column (z-1), so scrolled content slides in behind it.
+	const stageClass = $derived(
+		'grid *:col-start-1 *:row-start-1 *:min-w-0 bg-(--cream) ' +
+			(fullscreen ? 'fixed inset-x-0 top-(--header-h) z-25' : 'sticky top-(--map-peek-top) z-2')
+	);
+
+	const mapBtnClass =
+		'glass pointer-events-auto inline-flex h-[34px] min-w-[34px] cursor-pointer items-center ' +
+		'justify-center rounded-[10px] px-2.5 text-[15px] font-semibold text-(--ink) ' +
+		'transition-transform hover:-translate-y-px motion-reduce:transition-none';
+
+	const contentClass = $derived(
+		hasMap
+			? // Glass content panel floating over the live map.
+				'glass mx-auto mt-4 mb-12 w-[calc(100%-32px)] max-w-[892px] rounded-[18px] px-8 py-7 ' +
+					'text-sm leading-relaxed max-sm:mt-2.5 max-sm:mb-9 max-sm:w-[calc(100%-20px)] max-sm:px-4 max-sm:py-5'
+			: 'mx-auto max-w-[860px] px-10 py-9 text-sm leading-relaxed max-sm:px-4 max-sm:py-6'
+	);
 </script>
 
-<div class="trip-root" class:has-map={hasMap} style={styleVars}>
+<div class="relative" style={styleVars}>
 	{#if hasMap}
 		<!-- Persistent backdrop: mounted once, NEVER inside the {#if active} switch,
 		     so switching tabs never remounts or reloads it. -->
 		<div
-			class="map-stage"
-			class:fullscreen
-			class:collapsed={scrolled}
-			style="height: {mapHeight}px"
+			class={stageClass}
+			style="height: {mapHeight}px; --map-peek-top: {HEADER_H + COLLAPSED - expanded}px"
 		>
-			<TripMap bind:this={tripMap} {layers} height={mapHeight} {interactive} />
+			<TripMap bind:this={tripMap} {layers} height={mapHeight} {interactive} {hiddenTop} />
 			<Hero {trip} glass compact={scrolled} />
-			<div class="map-controls">
+			<!-- Controls ride the peek: sticky below the header, like the hero. -->
+			<div
+				class="pointer-events-none sticky top-(--header-h) z-3 flex gap-2 self-start justify-self-end p-3"
+			>
 				{#if focusedKey}
-					<button type="button" class="map-btn" onclick={showAll}>Show all spots</button>
+					<button type="button" class={mapBtnClass} onclick={showAll}>Show all spots</button>
 				{/if}
 				<button
 					type="button"
-					class="map-btn map-expand"
+					class={mapBtnClass}
 					onclick={toggleFullscreen}
 					aria-label={fullscreen ? 'Close expanded map' : 'Expand map'}
 					title={fullscreen ? 'Close' : 'Expand map'}
@@ -154,7 +183,11 @@
 			</div>
 		</div>
 		{#if fullscreen}
-			<button type="button" class="scrim" aria-label="Close expanded map" onclick={toggleFullscreen}
+			<button
+				type="button"
+				class="fixed inset-x-0 top-(--header-h) bottom-0 z-24 cursor-pointer border-0 bg-black/40 p-0"
+				aria-label="Close expanded map"
+				onclick={toggleFullscreen}
 			></button>
 		{/if}
 	{:else}
@@ -163,10 +196,10 @@
 
 	<!-- While the map is fullscreen, take the content behind the scrim out of the
 	     tab order + a11y tree so keyboard focus can't land on hidden controls. -->
-	<div class="glass-stack" inert={fullscreen} aria-hidden={fullscreen}>
+	<div class="relative z-1" inert={fullscreen} aria-hidden={fullscreen}>
 		<TabBar {tabs} {active} onselect={(id) => (active = id)} glass={hasMap} />
 
-		<div class="content" class:glass={hasMap}>
+		<div class={contentClass}>
 			{#if active === 'brainstorm'}
 				<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
 			{:else if active === 'itinerary'}
@@ -187,117 +220,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.trip-root {
-		position: relative;
-	}
-
-	/* The map stage stacks the map, the glass hero and the controls in one cell,
-	   stays pinned under the app header, and shrinks as the page scrolls. */
-	.map-stage {
-		position: sticky;
-		top: var(--header-h);
-		z-index: 0;
-		display: grid;
-		grid-template-areas: 'stage';
-		overflow: hidden;
-		background: var(--cream);
-	}
-	.map-stage > :global(*) {
-		grid-area: stage;
-		min-width: 0;
-	}
-	/* The glass hero sits at the top of the map; controls top-right. */
-	.map-stage :global(.hero) {
-		align-self: start;
-		z-index: 2;
-	}
-	.map-controls {
-		align-self: start;
-		justify-self: end;
-		z-index: 3;
-		display: flex;
-		gap: 8px;
-		padding: 12px;
-	}
-	.map-btn {
-		pointer-events: auto;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		height: 34px;
-		min-width: 34px;
-		padding: 0 10px;
-		border-radius: 10px;
-		font-size: 15px;
-		font-weight: 600;
-		color: var(--ink);
-		background: var(--glass-bg);
-		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-		backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-		border: 1px solid var(--glass-stroke);
-		box-shadow: var(--glass-shadow);
-		cursor: pointer;
-		transition: transform 0.2s ease;
-	}
-	.map-btn:hover {
-		transform: translateY(-1px);
-	}
-
-	/* Fullscreen / near-fullscreen exploration state. */
-	.map-stage.fullscreen {
-		position: fixed;
-		top: var(--header-h);
-		left: 0;
-		right: 0;
-		z-index: 25;
-	}
-	.scrim {
-		position: fixed;
-		inset: var(--header-h) 0 0 0;
-		z-index: 24;
-		border: 0;
-		padding: 0;
-		background: rgba(0, 0, 0, 0.4);
-		cursor: pointer;
-	}
-
-	.glass-stack {
-		position: relative;
-		z-index: 1;
-	}
-
-	.content {
-		max-width: 860px;
-		margin: 0 auto;
-		padding: 36px 40px;
-		font-size: 14px;
-		line-height: 1.6;
-	}
-	/* Glass content panel floating over the live map. */
-	.content.glass {
-		margin: 16px auto 48px;
-		max-width: 892px;
-		width: calc(100% - 32px);
-		padding: 28px 32px;
-		border-radius: 18px;
-	}
-
-	@media (max-width: 640px) {
-		.content {
-			padding: 24px 16px;
-		}
-		.content.glass {
-			width: calc(100% - 20px);
-			padding: 20px 16px;
-			margin: 10px auto 36px;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.map-btn {
-			transition: none;
-		}
-	}
-</style>

@@ -2,19 +2,16 @@
 	let { html, marginTop }: { html: string; marginTop?: string } = $props();
 </script>
 
-<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-<div class="tip-note" style:margin-top={marginTop}>{@html html}</div>
+<div
+	class="tip-note rounded-[10px] border border-(--amber-md) bg-(--amber-lt) px-4 py-[13px] text-[12.5px] leading-[1.55] text-(--amber-strong)"
+	style:margin-top={marginTop}
+>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html html}
+</div>
 
 <style>
-	.tip-note {
-		background: var(--amber-lt);
-		border: 1px solid var(--amber-md);
-		border-radius: 10px;
-		padding: 13px 16px;
-		font-size: 12.5px;
-		color: var(--amber-strong);
-		line-height: 1.55;
-	}
+	/* Bold text inside the {@html}-injected content — utilities can't reach it. */
 	.tip-note :global(strong) {
 		color: var(--amber);
 		font-weight: 700;
