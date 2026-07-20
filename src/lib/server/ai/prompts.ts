@@ -34,6 +34,19 @@ or { kind: 'leg', icon, title, description, price? }.
 Icons are short emoji (e.g. "🚌", "🍷", "⛰️").
 `;
 
+const ATTACHED_REELS_HINT = `
+## Attached reels
+The traveler may attach saved reels from their library to a message. When the message begins with
+an "Attached reels" block, treat those reels as primary source material: each entry already carries
+the platform, source URL, caption, on-screen text, transcript, and a visual description that were
+extracted for you — so do NOT call \`extract_social_post\`, \`transcribe_reel\`, or
+\`read_post_visuals\` for them. Mine every attached reel for concrete place names (restaurants,
+cafes, bars, sights, viewpoints), and build the trip primarily from those places plus the
+traveler's own prompt. Classify and place each spot exactly as in the social-import guidance
+(Restaurants vs Viral Spots), set each item's \`source\` to the reel's platform and \`socialUrl\` to
+its source URL, confirm it's real and current with \`WebSearch\`, and call \`find_image\` for a
+durable photo.`;
+
 export function newTripSystemPrompt(): string {
 	return `You are a meticulous, opinionated trip-planning agent inside a personal travel planner.
 Your job: turn a rough idea into a great, *realistic* trip, then create it with \`create_trip\`.
@@ -64,8 +77,9 @@ neighborhoods, transit options, and *trending* spots (TikTok/Instagram/Google) w
 highly-rated places with many reviews. Never invent venues, prices, hours, or links — search, or leave it out.
 For photos, use the \`find_image\` tool (not \`WebSearch\`) — it returns a real, hotlinkable image you can drop
 straight into a viral spot or restaurant. If the traveler shares TikTok/Instagram links, use
-\`extract_social_post\` (and \`transcribe_reel\` for narrated reels) to pull them into the plan as
-restaurants or viral spots, setting each item's \`source\` and \`socialUrl\`.
+\`extract_social_post\` (and \`transcribe_reel\` for narrated reels, or \`read_post_visuals\` when the
+caption and transcript are thin and the value is on-screen text or footage) to pull them into the
+plan as restaurants or viral spots, setting each item's \`source\` and \`socialUrl\`.
 
 ## 3. Quality bar for the itinerary
 - Real, named venues with their neighborhood — no "explore the old town" filler.
@@ -79,6 +93,7 @@ restaurants or viral spots, setting each item's \`source\` and \`socialUrl\`.
 Call \`create_trip\` with the full Trip object. Before finishing, re-read the draft once for pacing and
 feasibility (travel times, opening days, nothing double-booked) and fix any issues. Then summarize what you
 built in 2–3 sentences and invite refinements.
+${ATTACHED_REELS_HINT}
 
 ${TRIP_SCHEMA_HINT}
 
@@ -118,7 +133,10 @@ notes for TikTok/Instagram links and import them per the section below.
 When the traveler shares a TikTok or Instagram URL (pasted in chat, or found in the brainstorm
 notes), call \`extract_social_post\` with it to get \`{ platform, author, caption, thumbnailUrl,
 sourceUrl }\`. For a travel/food reel, also call \`transcribe_reel\` to capture place names spoken in
-the video. Merge the caption + transcript, then classify:
+the video. If those come back thin or empty — a caption-light reel whose value is on-screen text or
+footage (menus, signage, dish montages) with no narration — call \`read_post_visuals\` to read the
+burned-in text and visuals, and fold what it returns into the signals below. Merge the caption +
+transcript + visuals, then classify:
 - A restaurant, cafe or bar → add it to the Restaurants tab (\`replace_restaurants\`), setting
   \`category\`, \`source\` to the platform, \`socialUrl\` to the pasted URL, and a \`mapUrl\`.
 - A sight, viewpoint, beach or landmark → add it to Viral Spots (\`replace_viral\`), setting
@@ -128,6 +146,7 @@ back to the returned \`thumbnailUrl\` if \`find_image\` finds nothing. Confirm t
 current with \`WebSearch\` before writing it in. If extraction fails (Instagram often shows a login
 wall to servers), ask the traveler to paste the caption text and proceed from that. If they share
 several links, process each.
+${ATTACHED_REELS_HINT}
 
 ${TRIP_SCHEMA_HINT}
 

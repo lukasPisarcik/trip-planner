@@ -1,9 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { CircleCheck, ArrowRight } from '@lucide/svelte';
 	import { toast } from '$lib';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components';
-	import { modelStore, createChatSession, mergeItems, liveTurnFor } from '$lib/stores';
+	import {
+		modelStore,
+		createChatSession,
+		mergeItems,
+		liveTurnFor,
+		reelSelectionStore
+	} from '$lib/stores';
+	import type { ReelChip } from '$lib/stores/chatSession.svelte';
 	import { providerOf, type ChatMessage } from '$lib/schemas';
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
@@ -37,6 +45,16 @@
 
 	// Composer draft, lifted so an EmptyState starter chip can prefill it.
 	let composerText = $state('');
+
+	// Reels selected in /library and handed off via "Build trip" seed the composer's
+	// attachment chips (drained once). Platform comes from the id prefix; the composer
+	// resolves each thumbnail from the live reels query.
+	let composerAttachments = $state<ReelChip[]>([]);
+	onMount(() => {
+		composerAttachments = reelSelectionStore
+			.takePending()
+			.map((reelId) => ({ reelId, platform: reelId.split('-')[0] ?? '' }));
+	});
 
 	// Persisted history + the live turn's items (the user message is deduped by id);
 	// once the turn is persisted `live` is null and we render history alone.
@@ -79,11 +97,12 @@
 		}
 	});
 
-	async function send(text: string) {
+	async function send(text: string, attachments: ReelChip[] = []) {
 		await session.send(text, {
 			tripSlug,
 			model: modelStore.forMode(mode),
 			sessionId,
+			attachments,
 			// No session to resume → this is a fresh conversation; create a new chat
 			// rather than resuming the trip's latest thread.
 			forceNew: !sessionId && !session.lastSessionId,
@@ -187,6 +206,7 @@
 				{/if}
 				<Composer
 					bind:value={composerText}
+					bind:attachments={composerAttachments}
 					onsend={send}
 					onstop={() => liveSession.stop()}
 					streaming={liveSession.streaming}

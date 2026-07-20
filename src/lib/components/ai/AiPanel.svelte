@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -11,8 +12,10 @@
 		modelStore,
 		createChatSession,
 		messagesToItems,
-		chatActivityStore
+		chatActivityStore,
+		reelSelectionStore
 	} from '$lib/stores';
+	import type { ReelChip } from '$lib/stores/chatSession.svelte';
 	import { listChats, getChatBySession } from '$lib/remote/chats.remote';
 	import { providerOf, type ChatMessage } from '$lib/schemas';
 	import MessageList from './MessageList.svelte';
@@ -60,6 +63,22 @@
 
 	// Composer draft, lifted so an EmptyState starter chip can prefill it.
 	let composerText = $state('');
+
+	// Reels handed off from /library via "Build trip" seed the composer's attachment
+	// chips (drained once). Platform comes from the id prefix; the composer resolves
+	// each thumbnail from the live reels query. When present, open the panel on a
+	// fresh chat so the chips are visible and the user can type their prompt.
+	let composerAttachments = $state<ReelChip[]>([]);
+	onMount(() => {
+		const pending = reelSelectionStore
+			.takePending()
+			.map((reelId): ReelChip => ({ reelId, platform: reelId.split('-')[0] ?? '' }));
+		if (pending.length > 0) {
+			composerAttachments = pending;
+			startNewChat();
+			aiPanelStore.set(true);
+		}
+	});
 
 	// Surface failures as a toast (the inline Alert remains the persistent state).
 	let lastErr: unknown = null;
@@ -169,12 +188,13 @@
 		}
 	}
 
-	async function send(text: string) {
+	async function send(text: string, attachments: ReelChip[] = []) {
 		const resumeId = selectedSessionId ?? session.lastSessionId ?? undefined;
 		await session.send(text, {
 			tripSlug,
 			model: modelStore.forMode('edit-trip'),
 			sessionId: resumeId,
+			attachments,
 			// "New chat" has no session to resume → force a fresh thread instead of
 			// resuming the trip's latest (getOrCreateChat) thread.
 			forceNew: !resumeId,
@@ -335,6 +355,7 @@
 			<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
 				<Composer
 					bind:value={composerText}
+					bind:attachments={composerAttachments}
 					onsend={send}
 					onstop={() => session.stop()}
 					streaming={session.streaming}

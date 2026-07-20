@@ -22,6 +22,7 @@
 	import { chatActivityStore } from '$lib/stores';
 	import {
 		House,
+		Film,
 		Plus,
 		Trash2,
 		Star,
@@ -586,6 +587,18 @@
 							{/snippet}
 						</Sidebar.MenuButton>
 					</Sidebar.MenuItem>
+					{#if !viewerMode}
+						<Sidebar.MenuItem>
+							<Sidebar.MenuButton isActive={page.url.pathname === '/library'}>
+								{#snippet child({ props })}
+									<a href={resolve('/library')} {...props}>
+										<Film class="size-4" />
+										<span>Library</span>
+									</a>
+								{/snippet}
+							</Sidebar.MenuButton>
+						</Sidebar.MenuItem>
+					{/if}
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>

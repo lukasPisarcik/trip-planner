@@ -194,6 +194,12 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 				label: 'Transcribed the reel',
 				pending: 'Transcribing the reel…'
 			};
+		case 'read_post_visuals':
+			return {
+				icon: '👀',
+				label: 'Read the reel’s visuals',
+				pending: 'Reading the reel’s visuals…'
+			};
 		case 'WebSearch': {
 			const q = str(args.query);
 			return {

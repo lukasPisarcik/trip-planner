@@ -27,6 +27,11 @@ const PrivateEnvSchema = z.object({
 	YT_DLP_PATH: z.string().min(1).default('yt-dlp'),
 	WHISPER_CLI_PATH: z.string().min(1).default('whisper-cli'),
 	WHISPER_MODEL_PATH: z.string().min(1).optional(),
+	// Reel vision extraction (`read_post_visuals`). yt-dlp downloads the reel, ffmpeg
+	// samples keyframes, and the Claude Code license reads them (no metered API key —
+	// same one-shot SDK query the co-pilot uses). Defaults to the name on PATH; vision
+	// no-ops gracefully when the binaries or CLI are unavailable.
+	FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
 	// Agent turn watchdog (see src/lib/server/ai/agent.ts). A turn is aborted if
 	// the SDK emits no message for STALL ms (a stalled API stream), or if total
 	// runtime exceeds MAX ms. Coerced from strings since env values are strings.

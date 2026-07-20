@@ -384,6 +384,83 @@ export const MoveTripToFolderInput = z.object({
 });
 
 // =============================================================================
+// Reels library.
+//
+// A saved reel is the existing SocialPost signals (caption/transcript) plus a new
+// vision pass (on-screen text + visual description), extracted once in the
+// background and stored durably. Reels live in their own folders, namespaced
+// separately from trip folders. Reuse SocialPlatformSchema (above).
+// =============================================================================
+
+// Extraction lifecycle: a reel is inserted `processing`, flips to `ready` once the
+// background job fills its fields, or `error` if extraction fails (retryable).
+export const ReelStatusSchema = z.enum(['processing', 'ready', 'error']);
+export type ReelStatus = z.infer<typeof ReelStatusSchema>;
+
+// Output of the Claude-vision pass over sampled keyframes / the cover image.
+export const VisualExtractionSchema = z.object({
+	onScreenText: z.string().default(''), // text burned into frames / the image
+	visualDescription: z.string().default('') // what the model sees (places, dishes, signage)
+});
+export type VisualExtraction = z.infer<typeof VisualExtractionSchema>;
+
+export const ReelSchema = z.object({
+	// Slug business key (mirrors trips/folders); Convex's own `_id` is separate.
+	id: z
+		.string()
+		.min(1)
+		.regex(/^[a-z0-9-]+$/),
+	folderId: z.string().nullable().optional(),
+	platform: SocialPlatformSchema,
+	sourceUrl: z.url(),
+	author: z.string().optional(),
+	caption: z.string().optional(),
+	transcript: z.string().optional(),
+	onScreenText: z.string().optional(),
+	visualDescription: z.string().optional(),
+	thumbnailStorageId: z.string().optional(), // Convex file storage id (durable)
+	thumbnailUrl: z.url().optional(), // resolved by listReels for the client
+	status: ReelStatusSchema
+});
+export type Reel = z.infer<typeof ReelSchema>;
+
+// Reel folder — mirrors FolderSchema but its own table/namespace.
+export const ReelFolderSchema = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1)
+});
+export type ReelFolder = z.infer<typeof ReelFolderSchema>;
+
+// ---- Reel command inputs ----
+export const SaveReelInput = z.object({
+	url: z.url(),
+	folderId: z.string().nullable().optional()
+});
+export const ReelIdInput = z.object({ id: z.string().min(1) });
+export const MoveReelToFolderInput = z.object({
+	id: z.string().min(1),
+	// null = move to the ungrouped section.
+	folderId: z.string().min(1).nullable()
+});
+// Reel-folder inputs mirror the trip-folder trio.
+export const CreateReelFolderInput = z.object({ name: z.string().min(1).max(60) });
+export const RenameReelFolderInput = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1).max(60)
+});
+export const ReelFolderIdInput = z.object({ id: z.string().min(1) });
+
+// Composer attachment — sent by id; the chat route hydrates the stored text
+// server-side, so the client never asserts reel content.
+export const ReelAttachmentSchema = z.object({ reelId: z.string().min(1) });
+export type ReelAttachment = z.infer<typeof ReelAttachmentSchema>;
+
+// How many reels one build can attach. Enforced by ChatRequestSchema below AND
+// client-side (the selection store / tiles) so the user hits a friendly limit
+// instead of an opaque 400 from a rejected request body.
+export const MAX_REEL_ATTACHMENTS = 12;
+
+// =============================================================================
 // AI chat schemas.
 // =============================================================================
 
@@ -540,7 +617,10 @@ export const ChatRequestSchema = z.object({
 	// Client-generated id for the user message. The client renders its live echo with
 	// this id and the server persists the message with it, so a surface that loads the
 	// (already persisted) message and also shows the live turn can dedupe the two.
-	messageId: z.string().optional()
+	messageId: z.string().optional(),
+	// Reels attached from the Library. Sent by id; the chat route hydrates each reel's
+	// stored text from Convex and folds it into the prompt. Capped to keep payloads sane.
+	attachments: z.array(ReelAttachmentSchema).max(MAX_REEL_ATTACHMENTS).optional()
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

@@ -3,6 +3,7 @@ export { aiPanelStore } from './aiPanelStore.svelte';
 export { chatActivityStore } from './chatActivityStore.svelte';
 export { modelStore } from './modelStore.svelte';
 export { commandPaletteStore } from './commandPaletteStore.svelte';
+export { reelSelectionStore } from './reelSelectionStore.svelte';
 export {
 	ChatSession,
 	createChatSession,

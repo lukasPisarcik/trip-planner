@@ -17,6 +17,7 @@ import * as tripsService from '../services/trips.service';
 import { findWikimediaImage } from '../services/images.service';
 import { extractSocialPost } from '../services/social.service';
 import { transcribeReel } from '../services/transcribe.service';
+import { analyzeReelVisuals } from '../services/vision.service';
 import { PrivateEnvValue } from '../env.server';
 
 function ok(text: string) {
@@ -108,6 +109,34 @@ const transcribeReelTool = tool(
 		} catch (e) {
 			log.error({ err: e }, 'transcribe_reel failed');
 			return err(e instanceof Error ? e.message : 'transcription failed');
+		}
+	}
+);
+
+const readPostVisualsTool = tool(
+	'read_post_visuals',
+	'Read what a TikTok or Instagram reel *shows* — text burned into the frames (menus, prices, ' +
+		'signage, place names, "save this" overlays) and the venues/dishes/landmarks visible in the ' +
+		'footage. Use this when `extract_social_post` and `transcribe_reel` come back thin or empty ' +
+		'(a caption-light reel whose value is on-screen text or visuals, with no spoken narration). ' +
+		'Samples a few keyframes and reads them with vision. Returns JSON `{ onScreenText, ' +
+		'visualDescription }`, or a "not available" message. Map what it finds into spots the same way ' +
+		'you would a caption/transcript; confirm places with `WebSearch` and attach photos via `find_image`.',
+	{ url: z.url() },
+	async ({ url }) => {
+		try {
+			const visuals = await analyzeReelVisuals(url, {
+				ytDlpPath: PrivateEnvValue('YT_DLP_PATH'),
+				ffmpegPath: PrivateEnvValue('FFMPEG_PATH'),
+				claudeCodePath: PrivateEnvValue('CLAUDE_CODE_PATH'),
+				model: PrivateEnvValue('ANTHROPIC_MODEL')
+			});
+			return visuals
+				? ok(JSON.stringify(visuals))
+				: ok('Visual reading unavailable for this reel — work from the caption instead.');
+		} catch (e) {
+			log.error({ err: e }, 'read_post_visuals failed');
+			return err(e instanceof Error ? e.message : 'visual reading failed');
 		}
 	}
 );
@@ -273,6 +302,7 @@ export const tripToolDefs = [
 	findImageTool,
 	extractSocialPostTool,
 	transcribeReelTool,
+	readPostVisualsTool,
 	askUserTool,
 	updateTripFieldsTool,
 	createTripTool,

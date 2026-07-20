@@ -22,8 +22,28 @@
 	<QuestionForm {item} onsubmit={onsubmitQuestions} />
 {:else if item.kind === 'user'}
 	<!-- User turns get a soft-pink bubble (the ⌘E badge color) so they stand
-	     apart from the bare assistant replies. -->
-	<div class="flex max-w-full flex-col items-end">
+	     apart from the bare assistant replies. Reels attached from /library show
+	     as chips above the bubble, mirroring the composer. -->
+	<div class="flex max-w-full flex-col items-end gap-1.5">
+		{#if item.attachments?.length}
+			<div class="flex max-w-[92%] flex-wrap justify-end gap-1.5">
+				{#each item.attachments as chip (chip.reelId)}
+					<span
+						class="inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 py-1 pr-2 pl-1 text-[11px] leading-none text-foreground"
+					>
+						{#if chip.thumbnailUrl}
+							<img src={chip.thumbnailUrl} alt="" class="size-5 rounded object-cover" />
+						{:else}
+							<span
+								class="grid size-5 place-items-center rounded bg-muted text-[9px] text-muted-foreground"
+								aria-hidden="true">▶</span
+							>
+						{/if}
+						<span class="capitalize">{chip.platform}</span>
+					</span>
+				{/each}
+			</div>
+		{/if}
 		<div
 			class="max-w-[92%] rounded-[14px] rounded-br-[4px] bg-sidebar-accent px-3.5 py-2.5 text-[13.5px] leading-[1.55] break-words text-sidebar-accent-foreground"
 		>

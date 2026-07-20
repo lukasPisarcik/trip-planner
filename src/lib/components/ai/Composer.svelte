@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { ArrowUp, Square } from '@lucide/svelte';
+	import { ArrowUp, Square, X } from '@lucide/svelte';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$convex/_generated/api';
+	import type { Reel } from '$lib/schemas';
+	import type { ReelChip } from '$lib/stores/chatSession.svelte';
 	import ModelSelect from './ModelSelect.svelte';
 
 	let {
@@ -10,9 +14,10 @@
 		showModel = false,
 		usage = null,
 		placeholder = 'Plan a trip…',
-		value = $bindable('')
+		value = $bindable(''),
+		attachments = $bindable<ReelChip[]>([])
 	}: {
-		onsend: (text: string) => void;
+		onsend: (text: string, attachments: ReelChip[]) => void;
 		onstop?: () => void;
 		streaming?: boolean;
 		disabled?: boolean;
@@ -22,7 +27,29 @@
 		placeholder?: string;
 		/** Two-way bound draft text, so a parent can prefill it (e.g. a starter prompt). */
 		value?: string;
+		/** Reels attached from the /library "Build trip" handoff (seeded by the parent). */
+		attachments?: ReelChip[];
 	} = $props();
+
+	// Resolve each attached reel's live thumbnail/platform for the chip. The parent
+	// seeds ids (+ platform from the id prefix); this fills the durable thumbnail as
+	// the public listReels query loads, and the enriched chips ride along on send.
+	const reelsQuery = useQuery(api.reels.listReels, {});
+	const reels = $derived((reelsQuery.data ?? []) as Reel[]);
+	const chips = $derived(
+		attachments.map((a): ReelChip => {
+			const r = reels.find((x) => x.id === a.reelId);
+			return {
+				reelId: a.reelId,
+				platform: r?.platform ?? a.platform,
+				thumbnailUrl: r?.thumbnailUrl ?? a.thumbnailUrl
+			};
+		})
+	);
+
+	function removeAttachment(id: string) {
+		attachments = attachments.filter((a) => a.reelId !== id);
+	}
 
 	let ta = $state<HTMLTextAreaElement | null>(null);
 
@@ -54,8 +81,9 @@
 
 	function send() {
 		if (!canSend) return;
-		onsend(value.trim());
+		onsend(value.trim(), chips);
 		value = '';
+		attachments = [];
 		queueMicrotask(autoresize);
 	}
 
@@ -74,6 +102,33 @@
 	<div
 		class="flex flex-col gap-2 rounded-2xl border bg-background px-2.5 pt-2.5 pb-2 transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/15"
 	>
+		{#if chips.length > 0}
+			<div class="flex flex-wrap gap-1.5 px-1">
+				{#each chips as chip (chip.reelId)}
+					<span
+						class="inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 py-1 pr-1 pl-1 text-[11.5px] leading-none text-foreground"
+					>
+						{#if chip.thumbnailUrl}
+							<img src={chip.thumbnailUrl} alt="" class="size-5 rounded object-cover" />
+						{:else}
+							<span
+								class="grid size-5 place-items-center rounded bg-muted text-[9px] text-muted-foreground"
+								aria-hidden="true">▶</span
+							>
+						{/if}
+						<span class="capitalize">{chip.platform}</span>
+						<button
+							type="button"
+							class="inline-flex size-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							onclick={() => removeAttachment(chip.reelId)}
+							aria-label={`Remove ${chip.platform} reel`}
+						>
+							<X class="size-3" />
+						</button>
+					</span>
+				{/each}
+			</div>
+		{/if}
 		<textarea
 			bind:this={ta}
 			bind:value
