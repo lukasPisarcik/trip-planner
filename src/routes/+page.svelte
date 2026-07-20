@@ -29,15 +29,22 @@
 	<title>Trip Planner</title>
 </svelte:head>
 
-<div class="page">
-	<div class="eyebrow">Choose a trip</div>
+<div
+	class="mx-auto max-w-[1200px] px-10 pt-14 pb-16 max-[700px]:px-5 max-[700px]:pt-8 max-[700px]:pb-12"
+>
+	<div class="mb-6 text-[11px] font-semibold tracking-[0.16em] text-(--ink3) uppercase">
+		Choose a trip
+	</div>
 
-	<div class="grid">
+	<div class="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-6">
 		{#each trips as trip (trip.slug)}
-			<article class="card" style={cardStyle(trip.accent)}>
+			<article
+				class="group relative flex flex-col gap-4 overflow-hidden rounded-[18px] border border-(--trip-border) bg-(--white) px-8 pt-8 pb-7 transition-[box-shadow,transform] duration-200 ease-[ease] before:absolute before:inset-x-0 before:top-0 before:h-[5px] before:bg-[linear-gradient(to_right,var(--card-accent),var(--card-accent)_30%,color-mix(in_srgb,var(--card-accent)_35%,transparent))] before:content-[''] hover:-translate-y-0.5 hover:shadow-(--trip-shadow) max-[700px]:px-[22px] max-[700px]:pt-6 max-[700px]:pb-[22px]"
+				style={cardStyle(trip.accent)}
+			>
 				{#if !viewerMode}
 					<button
-						class="del"
+						class="absolute top-3.5 right-3.5 z-2 inline-flex size-[30px] cursor-pointer items-center justify-center rounded-lg border border-(--trip-border) bg-(--white) text-(--ink3) opacity-50 transition-[opacity,color,background] duration-150 ease-[ease] group-hover:opacity-100 hover:bg-(--cream) hover:text-[#dc2626] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--card-accent)"
 						title="Delete trip"
 						aria-label="Delete trip"
 						onclick={() => (confirmSlug = trip.slug)}
@@ -45,34 +52,51 @@
 						<Trash2 class="size-4" />
 					</button>
 				{/if}
-				<div class="flags">
+				<div class="mt-1 flex gap-2.5">
 					{#each trip.flags as f, i (i)}
-						<span class="flag">{f}</span>
+						<span class="text-[26px] leading-none">{f}</span>
 					{/each}
 				</div>
 
-				<h2>
+				<h2
+					class="font-serif text-[2.6rem] leading-[1.05] font-normal text-(--ink) max-[700px]:text-[2rem]"
+				>
 					{trip.title}
-					{#if trip.titleEmphasis}<em>{trip.titleEmphasis}</em>{/if}
+					{#if trip.titleEmphasis}<em class="text-(--card-accent) italic">{trip.titleEmphasis}</em
+						>{/if}
 				</h2>
 
-				<p class="tagline">{trip.tagline}</p>
+				<p class="text-sm leading-[1.55] text-(--ink2)">{trip.tagline}</p>
 
-				<div class="pills">
+				<div class="flex flex-wrap gap-2">
 					{#each trip.cardPills as p, i (i)}
-						<span class="pill">{p.label}</span>
+						<span
+							class="rounded-[20px] border border-(--card-accent-md) bg-(--card-accent-lt) px-3.5 py-[5px] text-[12.5px] font-medium whitespace-nowrap text-(--card-accent)"
+							>{p.label}</span
+						>
 					{/each}
 				</div>
 
-				<div class="hl-label">Highlights</div>
-				<ul class="hl-list">
+				<div class="mt-1 text-[10.5px] font-bold tracking-[0.16em] text-(--ink3) uppercase">
+					Highlights
+				</div>
+				<ul class="flex flex-col gap-2">
 					{#each trip.highlights as h, i (i)}
-						<li><span class="dot"></span><span>{h}</span></li>
+						<li class="flex items-start gap-3 text-[13.5px] leading-[1.5] text-(--ink)">
+							<span class="mt-[7px] size-[7px] shrink-0 rounded-full bg-(--card-accent)"></span>
+							<span>{h}</span>
+						</li>
 					{/each}
 				</ul>
 
-				<a class="cta" href={resolve('/trips/[slug]', { slug: trip.slug })}>
-					Open planner <span class="arrow">→</span>
+				<a
+					class="group/cta mt-3 inline-flex items-center justify-center gap-2 rounded-[999px] bg-(--card-accent) px-[22px] py-3.5 text-sm font-medium text-white no-underline transition-[filter,transform] duration-150 ease-[ease] hover:brightness-95 active:translate-y-px"
+					href={resolve('/trips/[slug]', { slug: trip.slug })}
+				>
+					Open planner <span
+						class="transition-transform duration-150 ease-[ease] group-hover/cta:translate-x-[3px]"
+						>→</span
+					>
 				</a>
 			</article>
 		{/each}
@@ -82,211 +106,3 @@
 {#if !viewerMode}
 	<DeleteTripConfirm trip={confirmTrip} onclose={() => (confirmSlug = null)} ondeleted={() => {}} />
 {/if}
-
-<style>
-	.page {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 56px 40px 64px;
-	}
-	.eyebrow {
-		font-size: 11px;
-		font-weight: 600;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--ink3);
-		margin-bottom: 24px;
-	}
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-		gap: 24px;
-	}
-
-	.card {
-		position: relative;
-		background: var(--white);
-		border: 1px solid var(--trip-border);
-		border-radius: 18px;
-		padding: 32px 32px 28px;
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		overflow: hidden;
-		transition:
-			box-shadow 0.2s,
-			transform 0.2s;
-	}
-	.card::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 5px;
-		background: linear-gradient(
-			to right,
-			var(--card-accent),
-			var(--card-accent) 30%,
-			color-mix(in srgb, var(--card-accent) 35%, transparent)
-		);
-	}
-	.card:hover {
-		box-shadow: var(--trip-shadow);
-		transform: translateY(-2px);
-	}
-
-	.del {
-		position: absolute;
-		top: 14px;
-		right: 14px;
-		z-index: 2;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 30px;
-		height: 30px;
-		border-radius: 8px;
-		border: 1px solid var(--trip-border);
-		background: var(--white);
-		color: var(--ink3);
-		cursor: pointer;
-		opacity: 0.5;
-		transition:
-			opacity 0.15s,
-			color 0.15s,
-			background 0.15s;
-	}
-	.card:hover .del,
-	.del:focus-visible {
-		opacity: 1;
-	}
-	.del:hover {
-		color: #dc2626;
-		background: var(--cream);
-	}
-	.del:focus-visible {
-		outline: 2px solid var(--card-accent);
-		outline-offset: 2px;
-	}
-
-	.flags {
-		display: flex;
-		gap: 10px;
-		margin-top: 4px;
-	}
-	.flag {
-		font-size: 26px;
-		line-height: 1;
-	}
-
-	h2 {
-		font-family: var(--font-serif);
-		font-size: 2.6rem;
-		font-weight: 400;
-		color: var(--ink);
-		line-height: 1.05;
-		margin: 0;
-	}
-	h2 em {
-		font-style: italic;
-		color: var(--card-accent);
-	}
-
-	.tagline {
-		color: var(--ink2);
-		font-size: 14px;
-		line-height: 1.55;
-	}
-
-	.pills {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-	.pill {
-		font-size: 12.5px;
-		font-weight: 500;
-		padding: 5px 14px;
-		border-radius: 20px;
-		background: var(--card-accent-lt);
-		color: var(--card-accent);
-		border: 1px solid var(--card-accent-md);
-		white-space: nowrap;
-	}
-
-	.hl-label {
-		font-size: 10.5px;
-		font-weight: 700;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--ink3);
-		margin-top: 4px;
-	}
-	.hl-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-	.hl-list li {
-		display: flex;
-		align-items: flex-start;
-		gap: 12px;
-		font-size: 13.5px;
-		color: var(--ink);
-		line-height: 1.5;
-	}
-	.dot {
-		flex-shrink: 0;
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		background: var(--card-accent);
-		margin-top: 7px;
-	}
-
-	.cta {
-		margin-top: 12px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		background: var(--card-accent);
-		color: #ffffff;
-		font-size: 14px;
-		font-weight: 500;
-		padding: 14px 22px;
-		border-radius: 999px;
-		text-decoration: none;
-		transition:
-			filter 0.15s,
-			transform 0.15s;
-	}
-	.cta:hover {
-		filter: brightness(0.95);
-	}
-	.cta:active {
-		transform: translateY(1px);
-	}
-	.cta .arrow {
-		transition: transform 0.15s;
-	}
-	.cta:hover .arrow {
-		transform: translateX(3px);
-	}
-
-	@media (max-width: 700px) {
-		.page {
-			padding: 32px 20px 48px;
-		}
-		.card {
-			padding: 24px 22px 22px;
-		}
-		h2 {
-			font-size: 2rem;
-		}
-	}
-</style>

@@ -10,8 +10,12 @@
 <Callout html={data.callout} />
 
 {#each data.groups as group, gi (gi)}
-	<div class="route-group">
-		<div class="route-group-title">{group.title}</div>
+	<div class="mb-7">
+		<div
+			class="mb-2.5 inline-block rounded-[7px] bg-[var(--trip-accent,var(--sage))] px-[13px] py-[7px] text-[11px] font-bold tracking-[0.1em] text-white uppercase"
+		>
+			{group.title}
+		</div>
 		{#each group.routes as route, ri (ri)}
 			<RouteCard {route} />
 		{/each}
@@ -19,21 +23,3 @@
 {/each}
 
 <SectionNote html={data.note} />
-
-<style>
-	.route-group {
-		margin-bottom: 28px;
-	}
-	.route-group-title {
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: #ffffff;
-		background: var(--trip-accent, var(--sage));
-		border-radius: 7px;
-		padding: 7px 13px;
-		margin-bottom: 10px;
-		display: inline-block;
-	}
-</style>

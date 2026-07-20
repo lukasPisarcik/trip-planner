@@ -45,14 +45,18 @@
 	{/if}
 
 	{#each cities as city, ci (ci)}
-		<div class="city-header">
-			{#if city.flag}<span class="city-flag">{city.flag}</span>{/if}
-			<span class="city-name">{city.city}</span>
+		<div
+			class="mt-2 mb-3.5 flex items-center gap-2 border-b border-(--trip-border) pb-2 not-first:mt-7"
+		>
+			{#if city.flag}<span class="text-[20px] leading-none">{city.flag}</span>{/if}
+			<span class="text-[16px] font-bold text-(--ink)">{city.city}</span>
 		</div>
 
 		{#each city.groups as group (group.category)}
-			<div class="cat-label">{categoryLabel[group.category]}</div>
-			<div class="rest-grid">
+			<div class="mb-3 text-[10px] font-bold tracking-[0.12em] text-(--ink3) uppercase">
+				{categoryLabel[group.category]}
+			</div>
+			<div class="mb-[22px] grid grid-cols-[1fr_1fr] gap-2.5 max-[600px]:grid-cols-[1fr]">
 				{#each group.places as place, i (i)}
 					<RestaurantCard {place} />
 				{/each}
@@ -64,45 +68,3 @@
 		<SectionNote html={data.note} marginTop="8px" />
 	{/if}
 {/if}
-
-<style>
-	.city-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin: 8px 0 14px;
-		padding-bottom: 8px;
-		border-bottom: 1px solid var(--trip-border);
-	}
-	.city-header:not(:first-child) {
-		margin-top: 28px;
-	}
-	.city-flag {
-		font-size: 20px;
-		line-height: 1;
-	}
-	.city-name {
-		font-size: 16px;
-		font-weight: 700;
-		color: var(--ink);
-	}
-	.cat-label {
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--ink3);
-		margin-bottom: 12px;
-	}
-	.rest-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 10px;
-		margin-bottom: 22px;
-	}
-	@media (max-width: 600px) {
-		.rest-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

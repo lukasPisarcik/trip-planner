@@ -2,20 +2,15 @@
 	let { html }: { html: string } = $props();
 </script>
 
-<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-<div class="callout">{@html html}</div>
+<div
+	class="callout mb-6 rounded-[10px] border border-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-4 py-3 text-[13px] leading-normal text-[var(--trip-accent,var(--sage))]"
+>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html html}
+</div>
 
 <style>
-	.callout {
-		background: var(--trip-accent-lt, var(--sage-lt));
-		border: 1px solid var(--trip-accent-md, var(--sage-md));
-		border-radius: 10px;
-		padding: 12px 16px;
-		font-size: 13px;
-		color: var(--trip-accent, var(--sage));
-		margin-bottom: 24px;
-		line-height: 1.5;
-	}
+	/* Bold text inside the {@html}-injected content — utilities can't reach it. */
 	.callout :global(strong) {
 		font-weight: 700;
 		color: var(--trip-accent, var(--sage));

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { ItineraryTab } from '$lib/trips';
+	import type { Day, ItineraryTab } from '$lib/trips';
 	import Callout from '../Callout.svelte';
 	import CountryDivider from '../CountryDivider.svelte';
 	import DayCard from '../DayCard.svelte';
 
-	let { data }: { data: ItineraryTab } = $props();
+	let { data, onfocusday }: { data: ItineraryTab; onfocusday?: (day: Day) => void } = $props();
 </script>
 
 <Callout html={data.callout} />
@@ -12,5 +12,5 @@
 	{#if day.countryHeader}
 		<CountryDivider header={day.countryHeader} />
 	{/if}
-	<DayCard {day} />
+	<DayCard {day} {onfocusday} />
 {/each}

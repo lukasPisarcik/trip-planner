@@ -178,6 +178,9 @@ export const ViralSpotSchema = z.object({
 	// clickable source badge on the viral card (mirrors restaurants).
 	source: RestaurantSourceSchema.optional(),
 	socialUrl: z.url().optional(),
+	// Optional location so the spot can be plotted on the trip map backdrop.
+	// Backward-compatible: existing coord-less viral spots still validate.
+	coords: CoordsSchema.optional(),
 	image: ImageSchema.optional()
 });
 
@@ -202,6 +205,9 @@ export const RestaurantSchema = z.object({
 	source: RestaurantSourceSchema.optional(),
 	socialUrl: z.url().optional(),
 	mapUrl: z.url().optional(),
+	// Optional location so the place can be plotted on the trip map backdrop.
+	// Backward-compatible: existing coord-less restaurants still validate.
+	coords: CoordsSchema.optional(),
 	image: ImageSchema.optional()
 });
 
