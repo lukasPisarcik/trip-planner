@@ -224,8 +224,9 @@ export async function runReelExtraction(
  */
 export async function hydrateReels(ids: string[], deps?: ReelServiceDeps): Promise<Reel[]> {
 	const d = await resolveDeps(deps);
+	const secret = d.ownerSecret();
 	const reels = await Promise.all(
-		ids.map((id) => d.convex().query(api.reels.getReel, { id }) as Promise<Reel | null>)
+		ids.map((id) => d.convex().query(api.reels.getReel, { secret, id }) as Promise<Reel | null>)
 	);
 	return reels.filter((r): r is Reel => r != null);
 }
@@ -234,7 +235,9 @@ export async function hydrateReels(ids: string[], deps?: ReelServiceDeps): Promi
 export async function retryReelExtraction(id: string, deps?: ReelServiceDeps): Promise<void> {
 	const d = await resolveDeps(deps);
 	d.assertWritable();
-	const reel = (await d.convex().query(api.reels.getReel, { id })) as Reel | null;
+	const reel = (await d
+		.convex()
+		.query(api.reels.getReel, { secret: d.ownerSecret(), id })) as Reel | null;
 	if (!reel) throw new Error(`Reel "${id}" not found`);
 
 	await d.convex().mutation(api.reels.setReelExtraction, {

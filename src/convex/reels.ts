@@ -36,6 +36,12 @@ async function requireReel(ctx: MutationCtx, id: string) {
 
 // Resolves each reel's durable thumbnail (stored in Convex file storage) to a fresh
 // URL for the client, so tiles survive Instagram link expiry. Newest first.
+//
+// This is a PUBLIC, unauthenticated query served straight to the browser via
+// convex-svelte `useQuery`, so it deliberately returns ONLY the display metadata the
+// grid renders. The derived intelligence — `transcript`, `onScreenText`,
+// `visualDescription` — is withheld and read exclusively server-side through the
+// secret-gated `getReel` below (mirroring how private chat reads are gated).
 export const listReels = query({
 	args: {},
 	handler: async (ctx) => {
@@ -47,15 +53,28 @@ export const listReels = query({
 				const thumbnailUrl = storageId
 					? ((await ctx.storage.getUrl(storageId as Id<'_storage'>)) ?? undefined)
 					: undefined;
-				return { ...d.data, thumbnailUrl: thumbnailUrl ?? d.data?.thumbnailUrl };
+				return {
+					id: d.data.id,
+					folderId: d.data.folderId ?? null,
+					platform: d.data.platform,
+					sourceUrl: d.data.sourceUrl,
+					author: d.data.author,
+					caption: d.data.caption,
+					status: d.data.status,
+					thumbnailUrl: thumbnailUrl ?? d.data?.thumbnailUrl
+				};
 			})
 		);
 	}
 });
 
+// Full reel body incl. the private extracted text. Secret-gated and only ever called
+// server-side (by `reels.service.hydrateReels` / `retryReelExtraction`) — never from
+// the browser — so a reel's transcript/vision text is never world-readable.
 export const getReel = query({
-	args: { id: v.string() },
-	handler: async (ctx, { id }) => {
+	args: { secret: v.string(), id: v.string() },
+	handler: async (ctx, { secret, id }) => {
+		assertOwner(secret);
 		const doc = await ctx.db
 			.query('reels')
 			.withIndex('by_slug', (q) => q.eq('id', id))
