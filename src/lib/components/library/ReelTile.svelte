@@ -209,6 +209,10 @@
 							</DropdownMenuItem>
 						</DropdownMenuSubContent>
 					</DropdownMenuSub>
+					<DropdownMenuItem class="cursor-pointer" onSelect={() => onretry(reel)}>
+						<RotateCw class="size-4" />
+						Re-extract
+					</DropdownMenuItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem
 						variant="destructive"

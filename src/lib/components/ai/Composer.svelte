@@ -2,9 +2,10 @@
 	import { ArrowUp, Square, X } from '@lucide/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$convex/_generated/api';
-	import type { Reel } from '$lib/schemas';
+	import { MAX_REEL_ATTACHMENTS, type Reel } from '$lib/schemas';
 	import type { ReelChip } from '$lib/stores/chatSession.svelte';
 	import ModelSelect from './ModelSelect.svelte';
+	import ReelPicker from './ReelPicker.svelte';
 
 	let {
 		onsend,
@@ -49,6 +50,22 @@
 
 	function removeAttachment(id: string) {
 		attachments = attachments.filter((a) => a.reelId !== id);
+	}
+
+	// Pick reels straight from the composer (beside the model selector). Toggling an
+	// id adds/removes it from `attachments`; adds are capped so the send body never
+	// exceeds the server's attachment limit. Thumbnail/platform enrich via `chips`.
+	function toggleAttachment(id: string) {
+		if (attachments.some((a) => a.reelId === id)) {
+			attachments = attachments.filter((a) => a.reelId !== id);
+			return;
+		}
+		if (attachments.length >= MAX_REEL_ATTACHMENTS) return;
+		const r = reels.find((x) => x.id === id);
+		attachments = [
+			...attachments,
+			{ reelId: id, platform: r?.platform ?? 'reel', thumbnailUrl: r?.thumbnailUrl }
+		];
 	}
 
 	let ta = $state<HTMLTextAreaElement | null>(null);
@@ -142,6 +159,12 @@
 		<div class="flex items-center gap-2">
 			{#if showModel}
 				<ModelSelect disabled={streaming} />
+				<ReelPicker
+					{reels}
+					selectedIds={attachments.map((a) => a.reelId)}
+					ontoggle={toggleAttachment}
+					disabled={streaming}
+				/>
 			{/if}
 			<div class="flex-1"></div>
 			{#if usage}

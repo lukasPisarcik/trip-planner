@@ -55,16 +55,32 @@ function safeImageUrl(value: string | undefined): string | undefined {
 	}
 }
 
-/** Minimal HTML-entity decode for OpenGraph content (which is HTML-escaped). */
+/** HTML-entity decode for OpenGraph content (which is HTML-escaped). Handles the
+ *  named entities plus numeric char refs (`&#9749;` / `&#x2615;`) — Instagram
+ *  captions/authors are full of emoji encoded that way. `&amp;` is unescaped first
+ *  so a double-encoded `&amp;#x2615;` still resolves. */
 function decodeEntities(value: string | undefined): string | undefined {
 	if (!value) return undefined;
 	return value
 		.replace(/&amp;/g, '&')
 		.replace(/&quot;/g, '"')
-		.replace(/&#0?39;/g, "'")
 		.replace(/&apos;/g, "'")
 		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>');
+		.replace(/&gt;/g, '>')
+		.replace(/&#x([0-9a-fA-F]+);/g, (m, hex) => {
+			try {
+				return String.fromCodePoint(parseInt(hex, 16));
+			} catch {
+				return m;
+			}
+		})
+		.replace(/&#(\d+);/g, (m, dec) => {
+			try {
+				return String.fromCodePoint(parseInt(dec, 10));
+			} catch {
+				return m;
+			}
+		});
 }
 
 /** Instagram's og:title is usually "<name> on Instagram: …" — pull the handle/name. */
@@ -121,7 +137,10 @@ async function extractInstagram(url: string): Promise<SocialPost | null> {
 		const html = await res.text();
 		const title = decodeEntities(ogTag(html, 'title'));
 		const description = decodeEntities(ogTag(html, 'description'));
-		const image = ogTag(html, 'image');
+		// The image URL is HTML-escaped like the other OG tags — its signed query
+		// params arrive as `&amp;`, which corrupts the signature and 403s the CDN
+		// fetch (so no durable thumbnail). Decode it too.
+		const image = decodeEntities(ogTag(html, 'image'));
 		// No OG data at all → almost certainly a login wall; give up gracefully.
 		if (!title && !description && !image) return null;
 		return {
