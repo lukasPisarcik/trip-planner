@@ -12,10 +12,12 @@
 	const tripQuery = useQuery(api.trips.getTrip, () => (slug ? { slug } : 'skip'));
 	const tripTitle = $derived(tripQuery.data?.title as string | undefined);
 
-	async function onDone(sessionId: string | null) {
-		// Once the first turn has persisted, continue in the session-scoped view so
-		// the conversation reloads from history on refresh.
-		if (sessionId) await goto(resolve('/agent/[sessionId]', { sessionId }), { replaceState: true });
+	async function onSession(sessionId: string) {
+		// Hand off to the session-scoped view as soon as the id is known (not at turn
+		// end) so the run keeps streaming there and a refresh reloads from history.
+		// The streaming session survives this navigation (held by chatActivityStore);
+		// the session view adopts it via liveTurnFor.
+		await goto(resolve('/agent/[sessionId]', { sessionId }), { replaceState: true });
 	}
 </script>
 
@@ -23,4 +25,4 @@
 	<title>Agent workspace · Trip Planner</title>
 </svelte:head>
 
-<AgentChat tripSlug={slug ?? null} mode={slug ? 'edit-trip' : 'new-trip'} {tripTitle} {onDone} />
+<AgentChat tripSlug={slug ?? null} mode={slug ? 'edit-trip' : 'new-trip'} {tripTitle} {onSession} />

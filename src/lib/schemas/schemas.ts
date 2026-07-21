@@ -514,6 +514,9 @@ export const ChatMessageSchema = z.object({
 	detail: z.string().optional(),
 	// Set only on `questions` messages — the structured ask_user form payload.
 	questions: AskUserPayloadSchema.optional(),
+	// Set only on a settled `assistant` message — server-measured turn time (ms),
+	// rendered as "Ran for m:ss" and surviving reload.
+	durationMs: z.number().int().nonnegative().optional(),
 	createdAt: z.number()
 });
 

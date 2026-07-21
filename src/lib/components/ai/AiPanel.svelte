@@ -21,6 +21,7 @@
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
 	import EmptyState from './EmptyState.svelte';
+	import ChatRunTimer from './ChatRunTimer.svelte';
 
 	let {
 		tripTitle
@@ -60,6 +61,13 @@
 	let liveOnly = $state(false);
 
 	const session = createChatSession();
+
+	/** Resume nudge — satisfies ChatRequestSchema's `message.min(1)`. */
+	const CONTINUE_NUDGE = 'Please continue.';
+	function onContinue() {
+		session.error = null;
+		send(CONTINUE_NUDGE);
+	}
 
 	// Composer draft, lifted so an EmptyState starter chip can prefill it.
 	let composerText = $state('');
@@ -343,6 +351,7 @@
 				statusLabel={session.statusLabel}
 				class="p-4 pb-32"
 				onsubmitQuestions={(text) => send(text)}
+				{onContinue}
 			/>
 		{/if}
 	</div>
@@ -353,6 +362,11 @@
 		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
 			<div class="h-6 bg-gradient-to-t from-background/70 to-transparent"></div>
 			<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
+				{#if items.length > 0}
+					<div class="flex justify-end px-4 pt-2">
+						<ChatRunTimer {items} elapsed={session.elapsedMs} streaming={session.streaming} />
+					</div>
+				{/if}
 				<Composer
 					bind:value={composerText}
 					bind:attachments={composerAttachments}

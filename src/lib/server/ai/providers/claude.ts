@@ -121,6 +121,8 @@ export async function* runClaudeTurn(
 				} else if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
 					yield* leaveThinking();
 					mode = 'idle';
+					// A tool is now executing — pause the stall timer until its result.
+					wd.enterTool(ev.content_block.id);
 					yield {
 						type: 'tool-pending',
 						id: ev.content_block.id,
@@ -146,6 +148,9 @@ export async function* runClaudeTurn(
 					if (block.type === 'tool_use') {
 						yield* leaveThinking();
 						mode = 'idle';
+						// Idempotent by id — content_block_start above may have already marked
+						// this tool in flight; enterTool is a Set add either way.
+						wd.enterTool(block.id);
 						yield {
 							type: 'tool-call',
 							id: block.id,
@@ -164,9 +169,21 @@ export async function* runClaudeTurn(
 							(block as { type?: string }).type === 'tool_result'
 						) {
 							const result = block as { tool_use_id?: string; is_error?: boolean };
+							const toolUseId = result.tool_use_id ?? '';
+							// Result arrived — re-arm the stall timer (once no tool is in flight).
+							// A missing id can't drain the in-flight set (enterTool used the real
+							// block id), which would leave the stall paused for the rest of the
+							// turn — surface it rather than swallowing it silently.
+							if (!toolUseId) {
+								log.warn(
+									{ sessionId },
+									'tool_result missing tool_use_id — stall timer stays paused'
+								);
+							}
+							wd.exitTool(toolUseId);
 							yield {
 								type: 'tool-result',
-								id: result.tool_use_id ?? '',
+								id: toolUseId,
 								isError: result.is_error ?? false
 							};
 						}

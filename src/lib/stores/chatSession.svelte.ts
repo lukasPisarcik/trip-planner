@@ -20,7 +20,7 @@ export interface ReelChip {
 // the chip/disclosure needs; persisted messages map to their settled form.
 export type TurnItem =
 	| { kind: 'user'; id: string; text: string; attachments?: ReelChip[] }
-	| { kind: 'assistant'; id: string; text: string }
+	| { kind: 'assistant'; id: string; text: string; durationMs?: number }
 	| { kind: 'error'; id: string; text: string }
 	| { kind: 'thinking'; id: string; text: string; active: boolean; durationMs?: number }
 	| {
@@ -67,7 +67,7 @@ export function messagesToItems(messages: ChatMessage[]): TurnItem[] {
 			case 'error':
 				return { kind: 'error', id: m.id, text: m.content };
 			default:
-				return { kind: 'assistant', id: m.id, text: m.content };
+				return { kind: 'assistant', id: m.id, text: m.content, durationMs: m.durationMs };
 		}
 	});
 }
@@ -146,8 +146,11 @@ export class ChatSession {
 	usage = $state<{ used: number; total: number } | null>(null);
 	/** Slug of a trip the agent created this turn, so surfaces can link to it. */
 	createdTripSlug = $state<string | null>(null);
+	/** Live wall-clock elapsed (ms) for the in-flight turn; drives the run timer. */
+	elapsedMs = $state(0);
 
 	#controller: AbortController | null = null;
+	#ticker: ReturnType<typeof setInterval> | null = null;
 
 	get canSend(): boolean {
 		return !this.streaming;
@@ -165,6 +168,11 @@ export class ChatSession {
 		this.lastSessionId = null;
 		this.usage = null;
 		this.createdTripSlug = null;
+		if (this.#ticker) {
+			clearInterval(this.#ticker);
+			this.#ticker = null;
+		}
+		this.elapsedMs = 0;
 		// NB: deliberately do NOT touch chatActivityStore here. `reset()` runs inside
 		// reactive effects (e.g. the panel's trip-switch effect → resetToList), so
 		// reading/writing the store's `activeSession` would make those effects depend
@@ -187,6 +195,16 @@ export class ChatSession {
 		this.streaming = true;
 		this.status = 'thinking';
 		this.statusLabel = 'Thinking…';
+
+		// Live run timer: a 1s ticker feeds elapsedMs into the status line until the
+		// turn settles (cleared in finally). Client wall-clock — the server stamps the
+		// authoritative durationMs on the persisted assistant message.
+		const startedAt = Date.now();
+		this.elapsedMs = 0;
+		if (this.#ticker) clearInterval(this.#ticker);
+		this.#ticker = setInterval(() => {
+			this.elapsedMs = Date.now() - startedAt;
+		}, 1000);
 
 		const controller = new AbortController();
 		this.#controller = controller;
@@ -386,6 +404,21 @@ export class ChatSession {
 				this.status = 'error';
 			}
 		} finally {
+			// Turn settled — stop the run timer and stamp the final duration onto the
+			// live assistant reply, so "Ran for m:ss" shows during the linger window
+			// before refreshed history (with the server's durationMs) takes over.
+			if (this.#ticker) {
+				clearInterval(this.#ticker);
+				this.#ticker = null;
+			}
+			const settledMs = Date.now() - startedAt;
+			this.elapsedMs = settledMs;
+			const lastAssistant = [...this.items].reverse().find((it) => it.kind === 'assistant');
+			if (lastAssistant?.kind === 'assistant') {
+				// True settle time (not the last 1s tick), so even a sub-second turn shows
+				// a duration during the linger window before the server's durationMs lands.
+				lastAssistant.durationMs = settledMs;
+			}
 			// Turn settled — clear the live "Working…" indicator for this session.
 			chatActivityStore.stop(this.lastSessionId ?? resumeId ?? null);
 			// The chat set changed (new session and/or appended messages are now
