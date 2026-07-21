@@ -255,10 +255,10 @@
      through. The `interactive` class is a hook for the Leaflet-injected DOM
      rules below (which can't be styled with utilities). -->
 <div
-	class="trip-map relative isolate w-full bg-(--cream) {interactive
-		? 'pointer-events-auto'
-		: 'pointer-events-none'} {className}"
+	class="trip-map relative isolate w-full overflow-hidden bg-(--cream) {className}"
 	class:interactive
+	class:pointer-events-auto={interactive}
+	class:pointer-events-none={!interactive}
 	style="height: {height}px"
 	bind:this={mapEl}
 	role="region"
