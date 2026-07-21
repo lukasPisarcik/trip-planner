@@ -13,6 +13,12 @@
 	const record = $derived(chatQuery.current);
 	const history = $derived<ChatMessage[]>((record?.messages as ChatMessage[] | undefined) ?? []);
 	const tripSlug = $derived<string | null>(record?.tripSlug ?? null);
+	// A `create_trip` in this session's history means the build produced a trip — keep
+	// a durable "View trip" card in AgentChat (the live createdTripSlug is gone after
+	// the turn settles / a reload).
+	const createdTripSlug = $derived<string | null>(
+		history.some((m) => m.role === 'tool' && m.toolName === 'create_trip') ? tripSlug : null
+	);
 
 	// Keep history live when a turn settles elsewhere — e.g. a chat started in the
 	// side panel and expanded here mid-run keeps streaming on the panel's session;
@@ -44,5 +50,12 @@
 		<Button href={resolve('/agent')}>Start a new conversation</Button>
 	</div>
 {:else}
-	<AgentChat {tripSlug} {sessionId} mode={tripSlug ? 'edit-trip' : 'new-trip'} {history} {onDone} />
+	<AgentChat
+		{tripSlug}
+		{sessionId}
+		mode={tripSlug ? 'edit-trip' : 'new-trip'}
+		{history}
+		{createdTripSlug}
+		{onDone}
+	/>
 {/if}

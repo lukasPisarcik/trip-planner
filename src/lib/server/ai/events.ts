@@ -40,6 +40,10 @@ export interface TurnWatchdog {
 	ctrl: AbortController;
 	/** Call on every inbound message to reset the stall timer. */
 	resetStall: () => void;
+	/** A tool call started executing — disarm the stall timer while it runs. */
+	enterTool: (id: string) => void;
+	/** A tool call's result arrived — re-arm the stall timer once none are in flight. */
+	exitTool: (id: string) => void;
 	/** Clear both timers (call in a `finally`). */
 	cleanup: () => void;
 	/** Which timeout (if any) fired — used to throw AgentTimeoutError. */
@@ -51,6 +55,13 @@ export interface TurnWatchdog {
  * a stall timer (no SDK message for `stallMs`), and a max-runtime timer. Without this
  * a stalled API stream hangs forever and orphans the CLI subprocess. Shared by both
  * provider runners.
+ *
+ * The stall timer catches a dead API stream — but between a tool-call and its result
+ * the SDK emits nothing while the tool (a web search, a batch of image fetches) is
+ * genuinely working, which on a slow connection can exceed any fixed stall bound.
+ * So the stall timer is *disarmed* while any tool is in flight (`enterTool`/`exitTool`);
+ * the max-runtime timer stays the backstop — a truly hung tool, or a crashed
+ * subprocess that ends the stream, is still caught.
  */
 export function createTurnWatchdog(
 	signal: AbortSignal | undefined,
@@ -65,12 +76,26 @@ export function createTurnWatchdog(
 
 	let timedOut: 'stall' | 'max' | null = null;
 	let stallTimer: ReturnType<typeof setTimeout> | undefined;
+	// Tool calls currently executing (keyed by id, so the pending→call double-signal
+	// and parallel tool calls are both correct). Non-empty → the stall timer is off.
+	const inflight = new Set<string>();
+
 	const resetStall = () => {
 		clearTimeout(stallTimer);
+		// A tool is running → the max timer is the only bound; don't re-arm the stall.
+		if (inflight.size > 0) return;
 		stallTimer = setTimeout(() => {
 			timedOut = 'stall';
 			ctrl.abort();
 		}, stallMs);
+	};
+	const enterTool = (id: string) => {
+		inflight.add(id);
+		clearTimeout(stallTimer);
+	};
+	const exitTool = (id: string) => {
+		inflight.delete(id);
+		if (inflight.size === 0) resetStall();
 	};
 	const maxTimer = setTimeout(() => {
 		timedOut = 'max';
@@ -80,6 +105,8 @@ export function createTurnWatchdog(
 	return {
 		ctrl,
 		resetStall,
+		enterTool,
+		exitTool,
 		cleanup: () => {
 			clearTimeout(stallTimer);
 			clearTimeout(maxTimer);

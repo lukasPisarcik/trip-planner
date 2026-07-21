@@ -147,9 +147,23 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
 	const stream = new ReadableStream({
 		async start(controller) {
+			// Turn start — used to stamp a persisted `durationMs` on the assistant reply.
+			const turnStart = Date.now();
+
 			// Tell the client which session this turn belongs to, so a fresh
 			// /agent page can navigate to /agent/[sessionId] once the turn settles.
 			controller.enqueue(sseEvent({ type: 'session', sessionId: chat.sessionId }));
+
+			// Keepalive: an SSE comment every ~20s so a proxy / slow-network idle
+			// timeout can't drop a long, legitimately-quiet tool phase. The client's
+			// parser only reads lines beginning with `data:`, so a comment is ignored.
+			const keepalive = setInterval(() => {
+				try {
+					controller.enqueue(encoder.encode(': ka\n\n'));
+				} catch {
+					/* stream already closing */
+				}
+			}, 20_000);
 
 			// Reels attached from /library: hydrate their stored text by id and fold a
 			// bounded context block into the agent's prompt (the persisted user message
@@ -206,6 +220,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 				}
 			};
 
+			// Distinguishes a stall abort from the max-runtime cap in the persisted
+			// error copy (and the emitted event). Set in the catch below.
+			let timeoutReason: 'stall' | 'max' | null = null;
+
 			const finalize = async () => {
 				flushThinking();
 				if (assistantText) {
@@ -213,6 +231,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
 						id: assistantId,
 						role: 'assistant',
 						content: assistantText,
+						// Server-measured turn time, persisted so a reloaded turn still shows
+						// "Ran for m:ss" (the live client counter covers the in-flight run).
+						durationMs: Date.now() - turnStart,
 						createdAt: Date.now()
 					});
 				} else if (turnError) {
@@ -223,7 +244,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
 						role: 'error',
 						content:
 							turnError === 'timeout'
-								? 'The agent ran out of time before finishing. Send your message again to continue.'
+								? timeoutReason === 'stall'
+									? 'The agent stopped responding before finishing. Continue to pick up where it left off.'
+									: 'The agent ran out of time before finishing. Continue to pick up where it left off.'
 								: 'The agent hit an error before finishing. Try again.',
 						createdAt: Date.now()
 					});
@@ -396,14 +419,20 @@ export const POST: RequestHandler = async ({ request, url }) => {
 					log.info({ reqId, sessionId: chat.sessionId }, 'Agent turn aborted by client');
 				} else {
 					turnError = isTimeout ? 'timeout' : 'agent_error';
+					timeoutReason = e instanceof AgentTimeoutError ? e.reason : null;
 					log.error(
-						{ reqId, sessionId: chat.sessionId, err: e instanceof Error ? e.message : String(e) },
+						{
+							reqId,
+							sessionId: chat.sessionId,
+							reason: timeoutReason,
+							err: e instanceof Error ? e.message : String(e)
+						},
 						'Agent turn failed'
 					);
 					controller.enqueue(
 						sseEvent(
 							isTimeout
-								? { type: 'error', kind: 'timeout' }
+								? { type: 'error', kind: 'timeout', reason: timeoutReason }
 								: {
 										type: 'error',
 										kind: 'agent_error',
@@ -413,6 +442,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 					);
 				}
 			} finally {
+				clearInterval(keepalive);
 				controller.enqueue(sseEvent({ type: 'done' }));
 				await finalize();
 				log.info({ reqId, sessionId: chat.sessionId }, 'Chat request: finished');

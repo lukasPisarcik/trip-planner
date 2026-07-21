@@ -155,13 +155,18 @@ export async function* runCodexTurn(
 					}
 				} else if (item.type === 'mcp_tool_call') {
 					if (!done) {
-						// Dispatched — show the "working" chip immediately.
+						// Dispatched — show the "working" chip immediately and pause the
+						// stall timer until the result arrives.
 						yield* leaveThinking();
 						mode = 'idle';
+						wd.enterTool(item.id);
 						yield { type: 'tool-pending', id: item.id, name: item.tool };
 					} else {
-						// Completed — surface the call (with args, for ask_user/create_trip
-						// handling in the route) then its result.
+						// Completed — re-arm the stall timer first (before the yields, so a
+						// consumer that stops pulling mid-branch can't leave it disarmed;
+						// mirrors the Claude runner), then surface the call (with args, for
+						// ask_user/create_trip handling in the route) and its result.
+						wd.exitTool(item.id);
 						yield { type: 'tool-call', id: item.id, name: item.tool, input: item.arguments };
 						yield {
 							type: 'tool-result',

@@ -32,14 +32,17 @@ const PrivateEnvSchema = z.object({
 	// same one-shot SDK query the co-pilot uses). Defaults to the name on PATH; vision
 	// no-ops gracefully when the binaries or CLI are unavailable.
 	FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
-	// Agent turn watchdog (see src/lib/server/ai/agent.ts). A turn is aborted if
-	// the SDK emits no message for STALL ms (a stalled API stream), or if total
-	// runtime exceeds MAX ms. Coerced from strings since env values are strings.
-	AGENT_STALL_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
-	// Research-heavy first builds (many web searches + several itinerary writes)
-	// legitimately run past 5 minutes; 300s was aborting them mid-build before
-	// `create_trip` ever fired. 10 minutes gives them room to finish.
-	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(600_000),
+	// Agent turn watchdog (see src/lib/server/ai/events.ts). The stall timer aborts a
+	// turn only when the SDK stream goes quiet OUTSIDE a tool call (a dead API stream);
+	// it is disarmed while a tool executes, so a slow batch of image fetches / web
+	// searches no longer trips it. 180s covers a genuinely stalled stream with margin.
+	// Coerced from strings since env values are strings.
+	AGENT_STALL_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
+	// Hard cap on total turn runtime and the backstop for a truly hung tool (the stall
+	// timer is paused during tool execution). Research-heavy first builds (many web
+	// searches + several itinerary writes) legitimately run several minutes; 20 minutes
+	// gives them room to finish while still bounding a wedged subprocess.
+	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(1_200_000),
 	// Convex deployment URL for server-side reads (SSR + the AI agent) and writes.
 	// Same deployment as PUBLIC_CONVEX_URL, which the browser uses for reactive reads.
 	CONVEX_URL: z.string().url(),

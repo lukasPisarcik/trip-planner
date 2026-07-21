@@ -2,6 +2,7 @@
 	import { marked } from 'marked';
 	import { TriangleAlert } from '@lucide/svelte';
 	import type { TurnItem } from '$lib/stores';
+	import { formatDuration } from '$lib/ai/formatDuration';
 	import ThinkingBlock from './ThinkingBlock.svelte';
 	import ToolCall from './ToolCall.svelte';
 	import QuestionForm from './QuestionForm.svelte';
@@ -63,6 +64,9 @@
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html html}
 	</div>
+	{#if item.kind === 'assistant' && item.durationMs != null}
+		<p class="mt-1 text-[11px] text-muted-foreground">Ran for {formatDuration(item.durationMs)}</p>
+	{/if}
 {/if}
 
 <style>

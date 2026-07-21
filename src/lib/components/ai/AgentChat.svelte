@@ -23,15 +23,24 @@
 		history = [],
 		mode = 'new-trip',
 		tripTitle,
-		onDone
+		createdTripSlug = null,
+		onDone,
+		onSession
 	}: {
 		tripSlug?: string | null;
 		sessionId?: string;
 		history?: ChatMessage[];
 		mode?: 'new-trip' | 'edit-trip';
 		tripTitle?: string;
+		/** Durable created-trip slug derived from persisted history (survives reload). */
+		createdTripSlug?: string | null;
 		onDone?: (sessionId: string | null) => void | Promise<void>;
+		/** Fired once, the moment a new-trip turn learns its session id (early redirect). */
+		onSession?: (sessionId: string) => void;
 	} = $props();
+
+	/** Resume nudge — satisfies ChatRequestSchema's `message.min(1)`. */
+	const CONTINUE_NUDGE = 'Please continue.';
 
 	// This surface's own session, used to send turns started here.
 	const session = createChatSession();
@@ -42,6 +51,30 @@
 	// display state (streaming, status, errors); turns started here use our own.
 	const live = $derived(liveTurnFor(sessionId, history));
 	const liveSession = $derived(live ?? session);
+
+	// Bug 3 — early redirect. On the new-trip surface (`/agent`, no sessionId), hand
+	// the running turn over to the session-scoped view the moment its id is known, so
+	// the user watches the rest stream there instead of being stranded. The streaming
+	// ChatSession is held by chatActivityStore, so it survives this component
+	// unmounting; the session view adopts it via liveTurnFor. Fires once.
+	let handedOff = $state(false);
+	$effect(() => {
+		const id = session.lastSessionId;
+		if (id && !sessionId && !handedOff) {
+			handedOff = true;
+			onSession?.(id);
+		}
+	});
+
+	// The "trip ready" card comes from the live turn while it streams, else the durable
+	// slug derived from persisted history — so the card survives reload and the reset()
+	// after handoff/settle.
+	const tripReadySlug = $derived(liveSession.createdTripSlug ?? createdTripSlug);
+
+	function onContinue() {
+		liveSession.error = null;
+		send(CONTINUE_NUDGE);
+	}
 
 	// Composer draft, lifted so an EmptyState starter chip can prefill it.
 	let composerText = $state('');
@@ -107,9 +140,10 @@
 			// rather than resuming the trip's latest thread.
 			forceNew: !sessionId && !session.lastSessionId,
 			onDone: async () => {
-				// When the agent planned a trip, keep the thread + "view trip" card on
-				// screen — the card is the next step, so we don't navigate or clear.
-				if (session.createdTripSlug) return;
+				// Handed off to the session-scoped view (Bug 3): it now owns the turn via
+				// liveTurnFor, so don't reset() or navigate — that would tear down the
+				// live turn the new view is adopting.
+				if (handedOff) return;
 				// Otherwise parent refreshes persisted history (or navigates); drop the
 				// live turn so it isn't rendered twice alongside the refreshed history.
 				await onDone?.(session.lastSessionId);
@@ -133,9 +167,11 @@
 				streaming={liveSession.streaming}
 				status={liveSession.status}
 				statusLabel={liveSession.statusLabel}
+				elapsed={liveSession.elapsedMs}
 				class="mx-auto w-full max-w-[760px] px-4 pt-20"
 				style="padding-bottom: {barHeight + 16}px"
 				onsubmitQuestions={(text) => send(text)}
+				{onContinue}
 			/>
 		{/if}
 	</div>
@@ -183,7 +219,7 @@
 			class="pointer-events-auto bg-background/70 backdrop-blur-md"
 		>
 			<div class="mx-auto w-full max-w-[760px]">
-				{#if liveSession.createdTripSlug}
+				{#if tripReadySlug}
 					<div class="px-4 pt-3">
 						<div
 							class="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3"
@@ -192,11 +228,11 @@
 							<div class="min-w-0 flex-1">
 								<p class="m-0 text-[13.5px] font-medium text-foreground">Your trip is ready!</p>
 								<p class="m-0 truncate text-[12px] text-muted-foreground">
-									{liveSession.createdTripSlug}
+									{tripReadySlug}
 								</p>
 							</div>
 							<a
-								href={resolve('/trips/[slug]', { slug: liveSession.createdTripSlug })}
+								href={resolve('/trips/[slug]', { slug: tripReadySlug })}
 								class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[12.5px] font-medium text-primary-foreground transition hover:opacity-90"
 							>
 								View trip <ArrowRight class="size-3.5" />

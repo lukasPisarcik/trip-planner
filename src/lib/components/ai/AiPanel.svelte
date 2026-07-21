@@ -61,6 +61,13 @@
 
 	const session = createChatSession();
 
+	/** Resume nudge — satisfies ChatRequestSchema's `message.min(1)`. */
+	const CONTINUE_NUDGE = 'Please continue.';
+	function onContinue() {
+		session.error = null;
+		send(CONTINUE_NUDGE);
+	}
+
 	// Composer draft, lifted so an EmptyState starter chip can prefill it.
 	let composerText = $state('');
 
@@ -341,8 +348,10 @@
 				streaming={session.streaming}
 				status={session.status}
 				statusLabel={session.statusLabel}
+				elapsed={session.elapsedMs}
 				class="p-4 pb-32"
 				onsubmitQuestions={(text) => send(text)}
+				{onContinue}
 			/>
 		{/if}
 	</div>
