@@ -2,7 +2,6 @@
 	import { tick } from 'svelte';
 	import { cn } from '$lib/utils';
 	import type { TurnItem, ChatStatus } from '$lib/stores';
-	import { formatDuration } from '$lib/ai/formatDuration';
 	import Message from './Message.svelte';
 	import LogoLoader from './LogoLoader.svelte';
 
@@ -11,7 +10,6 @@
 		streaming = false,
 		status = 'idle',
 		statusLabel = '',
-		elapsed = 0,
 		class: className = 'p-4',
 		style = '',
 		onsubmitQuestions,
@@ -21,8 +19,6 @@
 		streaming?: boolean;
 		status?: ChatStatus;
 		statusLabel?: string;
-		/** Live elapsed run time (ms) for the in-flight turn; shown next to the loader. */
-		elapsed?: number;
 		/** Padding / max-width / centering for the scroll container. */
 		class?: string;
 		/** Inline style for the scroll container (e.g. a dynamic bottom padding). */
@@ -90,7 +86,7 @@
 	{#if showStatus}
 		<div class="inline-flex w-fit items-center gap-2.5 text-[12.5px] text-muted-foreground">
 			<LogoLoader />
-			<span>{statusLabel}{elapsed > 0 ? ` · ${formatDuration(elapsed)}` : ''}</span>
+			<span>{statusLabel}</span>
 		</div>
 	{/if}
 	{#if !streaming && lastIsError && onContinue}

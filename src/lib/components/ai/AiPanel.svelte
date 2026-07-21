@@ -21,6 +21,7 @@
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
 	import EmptyState from './EmptyState.svelte';
+	import ChatRunTimer from './ChatRunTimer.svelte';
 
 	let {
 		tripTitle
@@ -348,7 +349,6 @@
 				streaming={session.streaming}
 				status={session.status}
 				statusLabel={session.statusLabel}
-				elapsed={session.elapsedMs}
 				class="p-4 pb-32"
 				onsubmitQuestions={(text) => send(text)}
 				{onContinue}
@@ -362,6 +362,11 @@
 		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
 			<div class="h-6 bg-gradient-to-t from-background/70 to-transparent"></div>
 			<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
+				{#if items.length > 0}
+					<div class="flex justify-end px-4 pt-2">
+						<ChatRunTimer {items} elapsed={session.elapsedMs} streaming={session.streaming} />
+					</div>
+				{/if}
 				<Composer
 					bind:value={composerText}
 					bind:attachments={composerAttachments}

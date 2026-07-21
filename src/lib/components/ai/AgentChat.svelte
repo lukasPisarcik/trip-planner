@@ -16,6 +16,7 @@
 	import MessageList from './MessageList.svelte';
 	import Composer from './Composer.svelte';
 	import EmptyState from './EmptyState.svelte';
+	import ChatRunTimer from './ChatRunTimer.svelte';
 
 	let {
 		tripSlug = null,
@@ -167,7 +168,6 @@
 				streaming={liveSession.streaming}
 				status={liveSession.status}
 				statusLabel={liveSession.statusLabel}
-				elapsed={liveSession.elapsedMs}
 				class="mx-auto w-full max-w-[760px] px-4 pt-20"
 				style="padding-bottom: {barHeight + 16}px"
 				onsubmitQuestions={(text) => send(text)}
@@ -238,6 +238,15 @@
 								View trip <ArrowRight class="size-3.5" />
 							</a>
 						</div>
+					</div>
+				{/if}
+				{#if items.length > 0}
+					<div class="flex justify-end px-4 pt-2">
+						<ChatRunTimer
+							{items}
+							elapsed={liveSession.elapsedMs}
+							streaming={liveSession.streaming}
+						/>
 					</div>
 				{/if}
 				<Composer
