@@ -11,6 +11,7 @@
 import type * as chats from "../chats.js";
 import type * as folders from "../folders.js";
 import type * as lib_secret from "../lib/secret.js";
+import type * as reels from "../reels.js";
 import type * as trips from "../trips.js";
 
 import type {
@@ -23,6 +24,7 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   folders: typeof folders;
   "lib/secret": typeof lib_secret;
+  reels: typeof reels;
   trips: typeof trips;
 }>;
 

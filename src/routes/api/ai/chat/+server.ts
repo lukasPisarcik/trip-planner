@@ -4,6 +4,7 @@ import { log, ChatRequestSchema } from '$lib';
 import {
 	type ChatMessage,
 	type ChatProvider,
+	type Reel,
 	AskUserPayloadSchema,
 	providerOf
 } from '$lib/schemas';
@@ -15,6 +16,33 @@ const encoder = new TextEncoder();
 
 function sseEvent(data: unknown): Uint8Array {
 	return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/** Trim a reel field to keep the assembled context block bounded. */
+function truncate(s: string | undefined, max: number): string {
+	const t = (s ?? '').trim();
+	return t.length > max ? t.slice(0, max) + '…' : t;
+}
+
+/**
+ * Fold hydrated reels into a structured context block prepended to the agent's
+ * message. The block gives the agent the reels' already-extracted text so it need
+ * not re-transcribe them; the user's own (unmodified) prompt follows.
+ */
+function buildReelContext(reels: Reel[]): string {
+	const entries = reels.map((r) => {
+		const parts = [
+			`- ${r.platform} (${r.sourceUrl}): ${truncate(r.caption, 500) || '(no caption)'}`
+		];
+		const onScreen = truncate(r.onScreenText, 1500);
+		if (onScreen) parts.push(`  on-screen: ${onScreen}`);
+		const transcript = truncate(r.transcript, 1500);
+		if (transcript) parts.push(`  transcript: ${transcript}`);
+		const visuals = truncate(r.visualDescription, 1500);
+		if (visuals) parts.push(`  visuals: ${visuals}`);
+		return parts.join('\n');
+	});
+	return `Attached reels (build the trip primarily from these plus my prompt):\n${entries.join('\n')}`;
 }
 
 export const POST: RequestHandler = async ({ request, url }) => {
@@ -30,9 +58,16 @@ export const POST: RequestHandler = async ({ request, url }) => {
 		throw error(400, 'Invalid request body');
 	}
 
-	const { tripSlug, message, model, sessionId, newChat, messageId } = parsed.data;
+	const { tripSlug, message, model, sessionId, newChat, messageId, attachments } = parsed.data;
 	log.info(
-		{ reqId, tripSlug, model, sessionId, messageChars: message.length },
+		{
+			reqId,
+			tripSlug,
+			model,
+			sessionId,
+			messageChars: message.length,
+			attachments: attachments?.length ?? 0
+		},
 		'Chat request: validated'
 	);
 
@@ -115,6 +150,28 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			// Tell the client which session this turn belongs to, so a fresh
 			// /agent page can navigate to /agent/[sessionId] once the turn settles.
 			controller.enqueue(sseEvent({ type: 'session', sessionId: chat.sessionId }));
+
+			// Reels attached from /library: hydrate their stored text by id and fold a
+			// bounded context block into the agent's prompt (the persisted user message
+			// stays the user's own words — see userMsg above). Best-effort: a hydration
+			// failure just drops the block, leaving the plain prompt.
+			let agentMessage = message;
+			if (attachments?.length) {
+				try {
+					const { hydrateReels } = await import('$lib/server/services/reels.service');
+					const reels = await hydrateReels(attachments.map((a) => a.reelId));
+					if (reels.length) agentMessage = `${buildReelContext(reels)}\n\n${message}`;
+					log.info(
+						{ reqId, requested: attachments.length, hydrated: reels.length },
+						'Chat request: hydrated attached reels'
+					);
+				} catch (e) {
+					log.warn(
+						{ reqId, err: e instanceof Error ? e.message : String(e) },
+						'Failed to hydrate attached reels; sending prompt without reel context'
+					);
+				}
+			}
 
 			const assistantId = crypto.randomUUID();
 			let assistantText = '';
@@ -199,7 +256,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 					tripSlug,
 					sessionId: chat.sessionId,
 					resume: canResume,
-					message,
+					message: agentMessage,
 					model,
 					signal: abortCtrl.signal,
 					codexThreadId: chat.providerThreadId ?? null,

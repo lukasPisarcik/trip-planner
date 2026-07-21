@@ -2,12 +2,24 @@ import type { ChatMessage, ChatModel, AskUserPayload } from '$lib/schemas';
 import { formatTool } from '$lib/ai/formatTool';
 import { chatActivityStore } from './chatActivityStore.svelte';
 
+/**
+ * A reel attached to a user turn from the /library "Build trip" handoff. Carries
+ * just enough to render a chip (platform label + optional thumbnail); the server
+ * hydrates the reel's full text by id. `reelId` is the wire identity sent to the
+ * chat route as `attachments: [{ reelId }]`.
+ */
+export interface ReelChip {
+	reelId: string;
+	platform: string;
+	thumbnailUrl?: string;
+}
+
 // A single renderable item in a conversation. Both persisted history and the
 // live streaming turn are projected to this shape so there is exactly one
 // rendering path (see Message.svelte). Tool/thinking items carry the live state
 // the chip/disclosure needs; persisted messages map to their settled form.
 export type TurnItem =
-	| { kind: 'user'; id: string; text: string }
+	| { kind: 'user'; id: string; text: string; attachments?: ReelChip[] }
 	| { kind: 'assistant'; id: string; text: string }
 	| { kind: 'error'; id: string; text: string }
 	| { kind: 'thinking'; id: string; text: string; active: boolean; durationMs?: number }
@@ -103,6 +115,12 @@ export interface SendOptions {
 	sessionId?: string | null;
 	/** Force a brand-new conversation (explicit "New chat"), bypassing trip-thread resume. */
 	forceNew?: boolean;
+	/**
+	 * Reels attached from the /library "Build trip" handoff. Their ids ride in the
+	 * request body (`attachments`) so the server can fold the stored text into the
+	 * prompt; the full chips also decorate the user's turn in the transcript.
+	 */
+	attachments?: ReelChip[];
 	/** Run after the turn settles (e.g. refresh persisted history, then reset()). */
 	onDone?: () => void | Promise<void>;
 }
@@ -164,7 +182,8 @@ export class ChatSession {
 		// Stable id shared with the server's persisted copy (see SendOptions docs),
 		// so other surfaces can dedupe the live echo against loaded history.
 		const userId = crypto.randomUUID();
-		this.items.push({ kind: 'user', id: userId, text });
+		const attachments = opts.attachments?.length ? opts.attachments : undefined;
+		this.items.push({ kind: 'user', id: userId, text, attachments });
 		this.streaming = true;
 		this.status = 'thinking';
 		this.statusLabel = 'Thinking…';
@@ -193,7 +212,9 @@ export class ChatSession {
 					model: opts.model,
 					sessionId: resumeId,
 					newChat: opts.forceNew || undefined,
-					messageId: userId
+					messageId: userId,
+					// Wire identity only — the server hydrates each reel's text by id.
+					attachments: attachments?.map((a) => ({ reelId: a.reelId }))
 				}),
 				signal: controller.signal
 			});

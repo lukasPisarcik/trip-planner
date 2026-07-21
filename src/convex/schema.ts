@@ -30,6 +30,28 @@ export default defineSchema({
 		createdAt: v.number()
 	}).index('by_slug', ['id']),
 
+	// Saved reels (the Library). `id` is the slug business key; `data` is the full
+	// Reel object (Zod-validated on write). `folderId` and `status` are denormalized
+	// to the top level for indexing/filtering (Convex indexes only reach top-level
+	// fields). Kept in sync with `data` on write.
+	reels: defineTable({
+		id: v.string(),
+		folderId: v.union(v.string(), v.null()),
+		status: v.string(), // processing | ready | error
+		data: v.any(),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_slug', ['id'])
+		.index('by_folder', ['folderId']),
+
+	// Reel folders. Namespaced separately from trip `folders`. `id` is the slug key.
+	reelFolders: defineTable({
+		id: v.string(),
+		name: v.string(),
+		createdAt: v.number()
+	}).index('by_slug', ['id']),
+
 	// AI chat threads. `messages` is the append-only thread (fetched whole).
 	chats: defineTable({
 		sessionId: v.string(),
