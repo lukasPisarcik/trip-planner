@@ -11,6 +11,7 @@ import {
 	BudgetTabSchema,
 	TipsTabSchema,
 	RestaurantsTabSchema,
+	AccommodationTabSchema,
 	AskUserPayloadSchema
 } from '$lib/schemas';
 import * as tripsService from '../services/trips.service';
@@ -297,6 +298,27 @@ const replaceRestaurantsTool = tool(
 	}
 );
 
+const replaceAccommodationTool = tool(
+	'replace_accommodation',
+	'Replace the entire accommodation ("Stay") tab payload (callout + cities of stays + note). ' +
+		'Research real, currently-bookable places on Hostelworld, Booking.com and Airbnb via ' +
+		'`WebSearch`/`WebFetch` — never invent one. Per city give 2–4 picks across budgets (hostel / ' +
+		'hotel / airbnb / apartment / guesthouse), each with `pricePerNight` as a research-time snapshot ' +
+		'(e.g. "€24 dorm / €78 private"), a 0–10 `rating` with its `ratingCount`, useful `tags` ' +
+		'("female dorms", "free breakfast"), a `bookingUrl` to the listing page, `coords` so the stay ' +
+		'shows on the trip map, and a `mapUrl` Google Maps search link. Call `find_image` for a real ' +
+		'photo where one exists (omit `image` if it finds nothing; never hand-write image URLs).',
+	{ slug: z.string(), payload: AccommodationTabSchema },
+	async ({ slug, payload }) => {
+		try {
+			await tripsService.replaceTripTab(slug, 'accommodation', payload);
+			return ok(`Replaced accommodation on ${slug}`);
+		} catch (e) {
+			return err(e instanceof Error ? e.message : 'replace failed');
+		}
+	}
+);
+
 export const tripToolDefs = [
 	getTripTool,
 	findImageTool,
@@ -312,7 +334,8 @@ export const tripToolDefs = [
 	replaceFlightsTool,
 	replaceBudgetTool,
 	replaceTipsTool,
-	replaceRestaurantsTool
+	replaceRestaurantsTool,
+	replaceAccommodationTool
 ];
 
 export const tripMcpServer = createSdkMcpServer({

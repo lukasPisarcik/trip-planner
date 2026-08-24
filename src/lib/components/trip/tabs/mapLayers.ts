@@ -1,12 +1,12 @@
 // Pure, framework-free helpers that derive what the map backdrop plots from a
 // Trip. Kept out of the Svelte component so the derivation is unit-testable
-// under Bun (see mapLayers.test.ts). No Leaflet import here — these return plain
-// data that TripMap.svelte turns into markers/polylines/bounds.
+// under Bun (see mapLayers.test.ts). No map-provider import here — these return
+// plain data that TripMap.svelte turns into markers/polylines/bounds.
 
 import type { Day, Trip } from '$lib/trips';
 
 /** Which part of the trip a plotted spot came from — drives the pin colour. */
-export type SpotCategory = 'activity' | 'restaurant' | 'viral';
+export type SpotCategory = 'activity' | 'restaurant' | 'viral' | 'stay';
 
 /** One coord-bearing place plotted on the persistent backdrop. */
 export interface MapSpot {
@@ -32,7 +32,7 @@ export interface DaySegmentPoint {
 	icon?: string;
 }
 
-/** SW + NE corners — the tuple shape Leaflet's `fitBounds` accepts. */
+/** SW + NE corners, as [[lat, lng], [lat, lng]] tuples. */
 export type BoundsTuple = [[number, number], [number, number]];
 
 /** Where to fly the backdrop (and what route to draw) when a day is opened. */
@@ -97,6 +97,19 @@ export function buildAllSpots(trip: Trip): MapLayers {
 					lng: place.coords.lng,
 					title: place.name,
 					category: 'restaurant'
+				});
+			}
+		}
+	}
+
+	for (const city of trip.accommodation?.cities ?? []) {
+		for (const place of city.places) {
+			if (place.coords) {
+				spots.push({
+					lat: place.coords.lat,
+					lng: place.coords.lng,
+					title: place.name,
+					category: 'stay'
 				});
 			}
 		}

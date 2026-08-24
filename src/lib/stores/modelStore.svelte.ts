@@ -77,7 +77,7 @@ class ModelStoreClass {
 	 * (only if Anthropic is licensed); edits follow the current selection. */
 	forMode(mode: 'new-trip' | 'edit-trip'): ChatModel {
 		if (mode === 'new-trip' && !this.pickedByUser && this.availability.anthropic) {
-			return 'claude-opus-4-8';
+			return 'claude-opus-5';
 		}
 		return this.current;
 	}

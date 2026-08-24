@@ -5,14 +5,22 @@
 	let {
 		trip,
 		glass = false,
-		compact = false
+		compact = false,
+		engaged = false,
+		overlayHeight = $bindable(0)
 	}: {
 		trip: Trip;
 		/** Render as a translucent overlay floating on the map (vs. a solid banner). */
 		glass?: boolean;
 		/** Condense to title + dates once the page is scrolled / the map collapses. */
 		compact?: boolean;
+		/** The user is interacting with the map — condense AND fade out of the way. */
+		engaged?: boolean;
+		/** Measured height (px) of the glass overlay, for map fit padding (bindable). */
+		overlayHeight?: number;
 	} = $props();
+
+	const condensed = $derived(compact || engaged);
 
 	// The sage pill follows the trip accent (it's the "default" tone).
 	const pillTone: Record<Accent, string> = {
@@ -33,17 +41,24 @@
 	<!-- Floats over the live map: a narrow, left-anchored card so most of the map
 	     stays visible. Sticky below the app header, so it rides along into the
 	     collapsed peek instead of scrolling out of view. -->
-	<div class="pointer-events-none sticky top-(--header-h) z-2 self-start p-4 max-sm:p-3">
+	<div
+		class="pointer-events-none sticky top-(--header-h) z-2 self-start p-4 max-sm:p-3"
+		bind:clientHeight={overlayHeight}
+	>
+		<!-- While engaged the card fades AND stops catching the pointer, so the map
+		     underneath stays pannable/clickable across its full area. -->
 		<div
-			class="glass pointer-events-auto max-w-md rounded-2xl transition-[padding] duration-300 motion-reduce:transition-none {compact
+			class="glass max-w-md rounded-2xl transition-[padding,opacity] duration-300 motion-reduce:transition-none {condensed
 				? 'px-4 py-2.5'
-				: 'px-5 py-4'}"
+				: 'px-5 py-4'} {engaged
+				? 'pointer-events-none opacity-35'
+				: 'pointer-events-auto opacity-100'}"
 		>
-			{#if !compact}
+			{#if !condensed}
 				<div class="mb-1.5 {eyebrowClass}">{trip.eyebrow}</div>
 			{/if}
 			<h1
-				class="font-serif leading-[1.15] font-normal text-(--ink) transition-[font-size] duration-300 motion-reduce:transition-none {compact
+				class="font-serif leading-[1.15] font-normal text-(--ink) transition-[font-size] duration-300 motion-reduce:transition-none {condensed
 					? 'mb-0.5 text-xl'
 					: 'mb-1 text-[1.75rem] max-sm:text-[1.45rem]'}"
 			>
@@ -51,10 +66,10 @@
 				{#if trip.titleEmphasis}<em class="text-(--trip-accent) italic">{trip.titleEmphasis}</em
 					>{/if}
 			</h1>
-			<p class="text-sm font-light text-(--ink2) {compact ? '' : 'mb-2.5'}">
+			<p class="text-sm font-light text-(--ink2) {condensed ? '' : 'mb-2.5'}">
 				{trip.subtitle} · {trip.dateRange}
 			</p>
-			{#if !compact}
+			{#if !condensed}
 				<p class="mb-3 max-w-[48ch] text-sm text-(--ink2) italic">
 					{trip.tagline}
 				</p>

@@ -9,7 +9,7 @@ import { z } from 'zod';
  * `PrivateEnvValue('YOUR_VAR')` so type safety holds.
  */
 const PrivateEnvSchema = z.object({
-	ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-4-6'),
+	ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5'),
 	CLAUDE_CODE_PATH: z.string().min(1).optional(),
 	// OpenAI/Codex co-pilot. OPENAI_MODEL is the fallback Codex model; CODEX_PATH
 	// optionally points at the `codex` CLI binary if it isn't on PATH (mirrors
@@ -56,7 +56,12 @@ const PrivateEnvSchema = z.object({
 	VIEWER_MODE: z
 		.string()
 		.optional()
-		.transform((v) => v === 'true')
+		.transform((v) => v === 'true'),
+	// Shared site password. When set, the handle hook in src/hooks.server.ts gates
+	// every page and API/remote request behind a signed session cookie (see
+	// src/lib/server/utils/crypto.ts). Unset → the gate is off and the app behaves
+	// exactly as before (local dev, existing deployments unaffected).
+	SITE_PASSWORD: z.string().min(1).optional()
 });
 
 type PrivateEnv = z.infer<typeof PrivateEnvSchema>;
@@ -87,4 +92,9 @@ export function PrivateEnvValue<K extends keyof PrivateEnv>(key: K): PrivateEnv[
 /** True when running as a read-only public deployment (`VIEWER_MODE=true`). */
 export function isViewerMode(): boolean {
 	return PrivateEnvValue('VIEWER_MODE');
+}
+
+/** True when the shared-password site gate is armed (`SITE_PASSWORD` set). */
+export function isSiteGated(): boolean {
+	return !!PrivateEnvValue('SITE_PASSWORD');
 }

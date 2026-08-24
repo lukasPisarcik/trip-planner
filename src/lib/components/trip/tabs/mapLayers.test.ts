@@ -3,9 +3,11 @@ import { buildAllSpots, dayFocus, boundsOf } from './mapLayers';
 import { RestaurantSchema, ViralSpotSchema, CoordsSchema } from '$lib/schemas/schemas';
 import type { Day, Trip } from '$lib/trips';
 
-// Minimal trip fixture — buildAllSpots only reads itinerary/restaurants/viral, so
-// the rest is filled in just enough to satisfy the type.
-function makeTrip(parts: Partial<Pick<Trip, 'itinerary' | 'restaurants' | 'viral'>>): Trip {
+// Minimal trip fixture — buildAllSpots only reads itinerary/restaurants/
+// accommodation/viral, so the rest is filled in just enough to satisfy the type.
+function makeTrip(
+	parts: Partial<Pick<Trip, 'itinerary' | 'restaurants' | 'accommodation' | 'viral'>>
+): Trip {
 	return {
 		itinerary: { callout: '', days: [] },
 		viral: { callout: '', sections: [], note: '' },
@@ -77,6 +79,39 @@ describe('buildAllSpots', () => {
 					}
 				]
 			},
+			accommodation: {
+				callout: '',
+				note: '',
+				cities: [
+					{
+						city: 'Berlin',
+						places: [
+							{
+								type: 'hostel',
+								name: 'Circus Hostel',
+								location: '',
+								description: '',
+								pricePerNight: '€30 dorm',
+								rating: 9.1,
+								ratingCount: 5000,
+								tags: [],
+								coords: { lat: 52.53, lng: 13.4 }
+							},
+							// No coords → skipped.
+							{
+								type: 'hotel',
+								name: 'No-coord hotel',
+								location: '',
+								description: '',
+								pricePerNight: '€90',
+								rating: 8.2,
+								ratingCount: 900,
+								tags: []
+							}
+						]
+					}
+				]
+			},
 			viral: {
 				callout: '',
 				note: '',
@@ -112,13 +147,14 @@ describe('buildAllSpots', () => {
 
 		const { spots } = buildAllSpots(trip);
 
-		// 4 coord-bearing across the trip (activity + leg + restaurant + viral);
-		// 3 coord-less items skipped.
-		expect(spots).toHaveLength(4);
+		// 5 coord-bearing across the trip (activity + leg + restaurant + stay + viral);
+		// 4 coord-less items skipped.
+		expect(spots).toHaveLength(5);
 
 		const byCategory = (c: string) => spots.filter((s) => s.category === c);
 		expect(byCategory('activity')).toHaveLength(2); // activity + leg both coord-bearing
 		expect(byCategory('restaurant')).toHaveLength(1);
+		expect(byCategory('stay')).toHaveLength(1);
 		expect(byCategory('viral')).toHaveLength(1);
 
 		// No coord-less item leaked in.

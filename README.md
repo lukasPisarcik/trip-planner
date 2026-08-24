@@ -80,17 +80,40 @@ starts with no trips — add your first with the ✨ AI co-pilot.
 
 ### Environment variables
 
-| Variable             | Scope                            | Purpose                                                                            |
-| -------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| `PUBLIC_CONVEX_URL`  | browser                          | Convex URL for reactive reads. Written by `bunx convex dev`.                       |
-| `CONVEX_URL`         | server                           | Same URL, for server-side reads (SSR + AI agent) and writes.                       |
-| `OWNER_WRITE_SECRET` | server **and** Convex deployment | Gates all writes. Set the **same value** in `.env.local` and via `convex env set`. |
-| `ANTHROPIC_MODEL`    | server                           | Default Claude model for the co-pilot (optional; has a default).                   |
-| `OPENAI_MODEL`       | server                           | Default OpenAI/Codex model for the co-pilot (optional; has a default).             |
-| `MCP_BRIDGE_SECRET`  | server                           | Bearer for the in-app trip-tools MCP endpoint the Codex agent calls (optional).    |
-| `VIEWER_MODE`        | server                           | `true` on a public read-only deployment (see below).                               |
+| Variable                     | Scope                            | Purpose                                                                            |
+| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
+| `PUBLIC_CONVEX_URL`          | browser                          | Convex URL for reactive reads. Written by `bunx convex dev`.                       |
+| `CONVEX_URL`                 | server                           | Same URL, for server-side reads (SSR + AI agent) and writes.                       |
+| `OWNER_WRITE_SECRET`         | server **and** Convex deployment | Gates all writes. Set the **same value** in `.env.local` and via `convex env set`. |
+| `ANTHROPIC_MODEL`            | server                           | Default Claude model for the co-pilot (optional; has a default).                   |
+| `OPENAI_MODEL`               | server                           | Default OpenAI/Codex model for the co-pilot (optional; has a default).             |
+| `MCP_BRIDGE_SECRET`          | server                           | Bearer for the in-app trip-tools MCP endpoint the Codex agent calls (optional).    |
+| `VIEWER_MODE`                | server                           | `true` on a public read-only deployment (see below).                               |
+| `SITE_PASSWORD`              | server                           | Optional shared password gating the whole site (see below). Unset = no gate.       |
+| `PUBLIC_GOOGLE_MAPS_API_KEY` | browser                          | Maps JavaScript API key for the trip map backdrop. Unset = solid hero, no map.     |
+| `PUBLIC_GOOGLE_MAPS_MAP_ID`  | browser                          | Vector Map ID for Advanced Markers (falls back to `DEMO_MAP_ID` locally).          |
 
 Server vars are declared and validated in `src/lib/server/env.server.ts`; see `.env.example`.
+
+### Google Maps setup (the trip map backdrop)
+
+The map renders through the Google Maps JavaScript API (~10k free map loads/month —
+effectively $0 at personal traffic, but it does need a billing-enabled project):
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project
+   (with billing) and enable **Maps JavaScript API**.
+2. Create an **API key**, restrict it to your referrers (`localhost:5173` + your
+   deployment domain) and cap its daily quota — the key ships in the browser bundle,
+   so restriction + quota are the containment.
+3. Create a **Map ID** (Map Management → Create Map ID, type JavaScript/vector) —
+   Advanced Markers require one. Local dev falls back to `DEMO_MAP_ID` if unset.
+4. Set `PUBLIC_GOOGLE_MAPS_API_KEY` (and optionally `PUBLIC_GOOGLE_MAPS_MAP_ID`) in
+   `.env.local` and on your deployment. Without a key, trips render the solid hero
+   banner instead of the map — everything else works.
+
+The map's ⬇ control downloads a whole-trip **KML** file (every spot, grouped by
+category). Import it once into [Google My Maps](https://mymaps.google.com) and all
+pins open together in the Google Maps app.
 
 ### Deploy a read-only public viewer (optional)
 
@@ -101,7 +124,14 @@ To share your trips read-only (e.g. on Vercel or similar):
    URL — the server needs it for SSR reads) and **`VIEWER_MODE=true`**. **Do _not_ set
    `OWNER_WRITE_SECRET`** — withholding it is what keeps the public site read-only: it reads
    live data but cannot write.
-3. Push function changes from your machine with `bunx convex deploy` when you change anything
+3. Optionally set **`SITE_PASSWORD`** to gate the whole site behind a shared password:
+   every page redirects to `/login` (and API/remote calls get a 401) until it's entered
+   once per browser (30-day signed cookie). Rotating the password signs everyone out.
+   Note this is deterrence, not confidentiality — Convex reads stay public queries.
+4. Set **`PUBLIC_GOOGLE_MAPS_API_KEY`** + **`PUBLIC_GOOGLE_MAPS_MAP_ID`** (see the Google
+   Maps setup above) so the deployed viewer renders the trip map; add the Vercel domain
+   to the key's referrer allow-list.
+5. Push function changes from your machine with `bunx convex deploy` when you change anything
    in `src/convex/`. Trip edits you make locally show up on the deployed site instantly — no
    rebuild, no commit.
 

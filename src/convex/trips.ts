@@ -10,6 +10,7 @@ import {
 	BudgetTabSchema,
 	TipsTabSchema,
 	RestaurantsTabSchema,
+	AccommodationTabSchema,
 	BrainstormSchema
 } from '../lib/schemas/schemas';
 import { assertOwner } from './lib/secret';
@@ -25,6 +26,7 @@ const TAB_SCHEMAS = {
 	budget: BudgetTabSchema,
 	tips: TipsTabSchema,
 	restaurants: RestaurantsTabSchema,
+	accommodation: AccommodationTabSchema,
 	brainstorm: BrainstormSchema
 } as const;
 type TabKey = keyof typeof TAB_SCHEMAS;

@@ -58,7 +58,7 @@ defects), and state that telemetry was not consulted.
 - **Base branch:** `main`. Never commit/push to `main` directly.
 - **Branch naming:** `<type>/<slug>` from the plan's `#plan-meta` — `feat/…`,
   `fix/…`, `chore/…`. Branch off **fresh `origin/main`** (`git switch -c <branch>
-  origin/main`) so the branch isn't based on a stale local `main` or a prior merged
+origin/main`) so the branch isn't based on a stale local `main` or a prior merged
   feature branch.
 - **Commit style:** Conventional Commits, type from `#plan-meta`. End the message
   with the `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
@@ -100,8 +100,9 @@ CI enforces it via `bunx changeset status --since=origin/main`.
 6. **No plain CSS** — Tailwind utilities only; no scoped `<style>`, new CSS files, or
    static inline `style`. Use design-token arbitrary values (`bg-(--cream)`,
    `text-(--ink2)`) and the shared `.glass` class. **Only exception:**
-   third-party-injected DOM (e.g. Leaflet markers/controls/popups) that utilities
-   can't reach — style it in a minimal scoped `<style>` block with `:global(...)`.
+   map-provider-injected DOM (e.g. Google Maps info-window chrome/controls) that
+   utilities can't reach — style it in a minimal scoped `<style>` block with
+   `:global(...)`. Advanced-marker content is our own DOM — utilities apply normally.
 
 ## Persistence note
 

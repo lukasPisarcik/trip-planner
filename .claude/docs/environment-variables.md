@@ -34,15 +34,21 @@ All env vars are declared in `src/lib/server/env.server.ts` with Zod validation.
 
 5. If deploying, make the var available in your host's environment (your platform's env or secret settings).
 
-## Sanctioned exceptions (Convex)
+## Sanctioned exceptions (browser vars + Convex)
 
-The "declare in `env.server.ts`" rule governs **server/private** vars. Two Convex vars
+The "declare in `env.server.ts`" rule governs **server/private** vars. A few vars
 legitimately live outside it because they belong to different runtimes:
 
 - **`PUBLIC_CONVEX_URL`** is a **browser** var — the reactive `convex-svelte` client needs
   it on the client. Read it via `$env/static/public` (only in `src/routes/+layout.svelte`,
   where `setupConvex` runs). Its server-side twin `CONVEX_URL` _is_ declared in
   `env.server.ts` as usual.
+- **`PUBLIC_GOOGLE_MAPS_API_KEY`** and **`PUBLIC_GOOGLE_MAPS_MAP_ID`** are **browser**
+  vars — the browser itself loads the Maps JavaScript API. Read via `$env/dynamic/public`
+  (dynamic, because they're optional — a keyless checkout must still build) in exactly one
+  module: the `<script module>` block of `src/lib/components/trip/TripMap.svelte`, which
+  exports `hasGoogleMapsKey` for the keyless solid-hero fallback. The key is public by
+  design; referrer restriction + quota caps in the Google Cloud console are the containment.
 - **`OWNER_WRITE_SECRET` inside `src/convex/*` functions** is read with `process.env`
   because Convex functions run in Convex's own V8 runtime, not the SvelteKit server. It's
   set on the deployment with `bunx convex env set OWNER_WRITE_SECRET …`. The SvelteKit
