@@ -6,7 +6,8 @@ import { isViewerMode } from '../env.server';
 import {
 	backfillTripImages,
 	backfillViralImages,
-	backfillRestaurantImages
+	backfillRestaurantImages,
+	backfillAccommodationImages
 } from './images.service';
 
 // Reads come live from Convex in every mode. Writes are gated: VIEWER_MODE blocks
@@ -51,6 +52,7 @@ export async function replaceTripTab(
 		| 'budget'
 		| 'tips'
 		| 'restaurants'
+		| 'accommodation'
 		| 'brainstorm',
 	payload: unknown
 ): Promise<void> {
@@ -59,6 +61,7 @@ export async function replaceTripTab(
 	let body = payload;
 	if (tab === 'viral') body = await backfillViralImages(payload);
 	else if (tab === 'restaurants') body = await backfillRestaurantImages(payload);
+	else if (tab === 'accommodation') body = await backfillAccommodationImages(payload);
 	await convex().mutation(api.trips.replaceTripTab, {
 		secret: ownerSecret(),
 		slug,

@@ -1,7 +1,20 @@
 <script lang="ts">
 	import type { Day } from '$lib/trips';
+	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
 
 	let { day, onfocusday }: { day: Day; onfocusday?: (day: Day) => void } = $props();
+
+	const mapLinkClass =
+		'mt-1 inline-block text-[10.5px] font-semibold text-(--ink3) no-underline hover:text-(--ink2) hover:underline';
+
+	/** Activities search by name (anchored at coords → real place listing);
+	 * transit legs keep the plain coordinate pin — "Vienna → Tokyo" isn't a place. */
+	function itemMapUrl(item: Day['items'][number]): string | null {
+		if (!item.coords) return null;
+		return gmapsSearchUrl(
+			item.kind === 'activity' ? { coords: item.coords, name: item.title } : { coords: item.coords }
+		);
+	}
 	// svelte-ignore state_referenced_locally
 	let open = $state(day.defaultOpen ?? false);
 
@@ -74,6 +87,17 @@
 							<span class="mt-0.5 block text-[11.5px] leading-[1.4] text-(--ink2)"
 								>{item.description}</span
 							>
+							{#if item.coords}
+								<!-- External Google Maps hand-off — not SvelteKit navigation -->
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									class={mapLinkClass}
+									href={itemMapUrl(item)}
+									target="_blank"
+									rel="noopener noreferrer">📍 Map</a
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
 						</div>
 						{#if item.price}
 							<div class="mt-0.5 text-[12px] font-bold whitespace-nowrap text-(--sky)">
@@ -97,6 +121,17 @@
 									class="mt-1 inline-block rounded-[5px] border border-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-2 py-px text-[11px] font-medium text-[var(--trip-accent,var(--sage))]"
 									>{item.tag}</span
 								>{/if}
+							{#if item.coords}
+								<!-- External Google Maps hand-off — not SvelteKit navigation -->
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									class="{mapLinkClass} {item.tag ? 'ml-2' : ''}"
+									href={itemMapUrl(item)}
+									target="_blank"
+									rel="noopener noreferrer">📍 Map</a
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
 						</div>
 					</div>
 				{/if}

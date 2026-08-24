@@ -1,4 +1,10 @@
-import { ViralTabSchema, RestaurantsTabSchema, TripSchema, type TripImage } from '$lib/schemas';
+import {
+	ViralTabSchema,
+	RestaurantsTabSchema,
+	AccommodationTabSchema,
+	TripSchema,
+	type TripImage
+} from '$lib/schemas';
 
 // Resolves real, hotlinkable photos for viral spots and restaurants from
 // Wikimedia, so the agent never has to guess an `upload.wikimedia.org` URL (it
@@ -175,7 +181,26 @@ export async function backfillRestaurantImages(payload: unknown): Promise<unknow
 	return tab;
 }
 
-/** Backfill viral + restaurant images on a whole trip object (for `create_trip`). */
+/** Backfill missing `image` on stays (same relevance guard as restaurants —
+ * hostel/hotel names resolve just as poorly on a blind Wikimedia top hit). */
+export async function backfillAccommodationImages(payload: unknown): Promise<unknown> {
+	const parsed = AccommodationTabSchema.safeParse(payload);
+	if (!parsed.success) return payload;
+	const tab = parsed.data;
+
+	const missing = tab.cities.flatMap((city) =>
+		city.places.filter((place) => !place.image).map((place) => ({ place, city: city.city }))
+	);
+	await pooledMap(missing, BACKFILL_CONCURRENCY, async ({ place, city }) => {
+		const hit = await lookupWikimedia(`${place.name}, ${city}`);
+		if (hit && titleMatchesPlace(hit.pageTitle, place.name)) {
+			place.image = { ...hit.image, alt: place.name };
+		}
+	});
+	return tab;
+}
+
+/** Backfill viral + restaurant + accommodation images on a whole trip object (for `create_trip`). */
 export async function backfillTripImages(trip: unknown): Promise<unknown> {
 	const parsed = TripSchema.safeParse(trip);
 	if (!parsed.success) return trip;
@@ -186,6 +211,11 @@ export async function backfillTripImages(trip: unknown): Promise<unknown> {
 		data.restaurants = (await backfillRestaurantImages(
 			data.restaurants
 		)) as typeof data.restaurants;
+	}
+	if (data.accommodation) {
+		data.accommodation = (await backfillAccommodationImages(
+			data.accommodation
+		)) as typeof data.accommodation;
 	}
 	return data;
 }

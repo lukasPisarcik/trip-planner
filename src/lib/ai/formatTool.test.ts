@@ -41,6 +41,26 @@ describe('formatTool', () => {
 		expect(d.detail).toContain('2 cities');
 	});
 
+	test('replace_accommodation aggregates stays across cities', () => {
+		const d = formatTool('replace_accommodation', {
+			slug: 'paris',
+			payload: { cities: [{ places: [{}, {}] }, { places: [{}] }] }
+		});
+		expect(d.label).toBe('Updated accommodation');
+		expect(d.detail).toContain('3 stays');
+		expect(d.detail).toContain('2 cities');
+	});
+
+	test('create_trip counts the accommodation section', () => {
+		const d = formatTool('create_trip', {
+			slug: 'paris',
+			title: 'Paris',
+			itinerary: { days: [{}] },
+			accommodation: { cities: [{ places: [{}, {}] }] }
+		});
+		expect(d.detail).toContain('2 stays');
+	});
+
 	test('singular vs plural wording', () => {
 		const one = formatTool('replace_itinerary', { payload: { days: [{}] } });
 		expect(one.detail).toBe('1 day');

@@ -1,7 +1,14 @@
 <script lang="ts">
 	import type { Restaurant, RestaurantCategory, RestaurantSource } from '$lib/trips';
+	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
 
 	let { place }: { place: Restaurant } = $props();
+
+	// AI-populated mapUrl wins; fall back to a built Google Maps link when the
+	// place has coords (or at least a name + location to search for).
+	const mapUrl = $derived(
+		place.mapUrl ?? gmapsSearchUrl({ coords: place.coords, name: place.name, city: place.location })
+	);
 
 	const categoryIcon: Record<RestaurantCategory, string> = {
 		food: '🍽️',
@@ -98,7 +105,7 @@
 		</div>
 	{/if}
 
-	{#if source || place.mapUrl}
+	{#if source || mapUrl}
 		<div class="flex flex-wrap items-center gap-2">
 			{#if source}
 				{#if place.socialUrl}
@@ -118,11 +125,11 @@
 					<span class="{srcBadgeClass} {source.tone}">{source.icon} {source.label}</span>
 				{/if}
 			{/if}
-			{#if place.mapUrl}
+			{#if mapUrl}
 				<!-- eslint-disable svelte/no-navigation-without-resolve -->
 				<a
 					class="text-[10.5px] font-semibold text-(--ink3) no-underline hover:text-(--ink2) hover:underline"
-					href={place.mapUrl}
+					href={mapUrl}
 					target="_blank"
 					rel="noopener noreferrer">📍 Map</a
 				>

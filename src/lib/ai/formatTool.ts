@@ -59,13 +59,16 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 			const flag = str(args.flag) ?? '';
 			const days = count(asRecord(args.itinerary).days);
 			const cities = count(asRecord(args.restaurants).cities);
+			const stayCities = asArray(asRecord(args.accommodation).cities);
+			const stays = stayCities.reduce<number>((sum, c) => sum + count(asRecord(c).places), 0);
 			return {
 				icon: '✨',
 				label: `Created trip: ${title}${flag ? ' ' + flag : ''}`,
 				pending: 'Creating your trip…',
 				detail: dotted(
 					days ? plural(days, 'day') : undefined,
-					cities ? plural(cities, 'city', 'cities') + ' of food spots' : undefined
+					cities ? plural(cities, 'city', 'cities') + ' of food spots' : undefined,
+					stays ? plural(stays, 'stay') : undefined
 				)
 			};
 		}
@@ -147,6 +150,19 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 				pending: 'Picking restaurants…',
 				detail: dotted(
 					places ? plural(places, 'spot') : undefined,
+					cities.length ? `across ${plural(cities.length, 'city', 'cities')}` : undefined
+				)
+			};
+		}
+		case 'replace_accommodation': {
+			const cities = asArray(asRecord(args.payload).cities);
+			const places = cities.reduce<number>((sum, c) => sum + count(asRecord(c).places), 0);
+			return {
+				icon: '🛏️',
+				label: 'Updated accommodation',
+				pending: 'Researching places to stay…',
+				detail: dotted(
+					places ? plural(places, 'stay') : undefined,
 					cities.length ? `across ${plural(cities.length, 'city', 'cities')}` : undefined
 				)
 			};

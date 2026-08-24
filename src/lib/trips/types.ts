@@ -146,6 +146,51 @@ export interface RestaurantsTab {
 	note: string;
 }
 
+export type AccommodationType =
+	| 'hostel'
+	| 'hotel'
+	| 'airbnb'
+	| 'apartment'
+	| 'guesthouse'
+	| 'camping';
+
+export interface AccommodationPlace {
+	type: AccommodationType;
+	name: string;
+	location: string;
+	description: string;
+	/** Research-time price snapshot, e.g. "€24 dorm / €78 private". */
+	pricePerNight: string;
+	/** Hostelworld-style 0–10 score. */
+	rating: number;
+	ratingCount: number;
+	tags: string[];
+	/** Hostelworld/Booking/Airbnb listing page. */
+	bookingUrl?: string;
+	mapUrl?: string;
+	/** When set, the stay is plotted on the trip map backdrop. */
+	coords?: Coords;
+	image?: {
+		url: string;
+		alt: string;
+		credit?: string;
+	};
+}
+
+export interface AccommodationCity {
+	city: string;
+	flag?: string;
+	/** e.g. "3 nights · Dec 20–23". */
+	nights?: string;
+	places: AccommodationPlace[];
+}
+
+export interface AccommodationTab {
+	callout: string;
+	cities: AccommodationCity[];
+	note: string;
+}
+
 export interface FlightInfoLine {
 	label: string;
 	value: string;
@@ -243,6 +288,8 @@ export interface Trip {
 	budget: BudgetTab;
 	tips: TipsTab;
 	restaurants?: RestaurantsTab;
+	/** Optional stays section the co-pilot researches (hostels/hotels/Airbnbs). */
+	accommodation?: AccommodationTab;
 	/** Free-form scratchpad the user dumps ideas/findings into; read by the AI co-pilot. */
 	brainstorm?: string;
 	/** User-toggled favorite, surfaced in the sidebar Favorites section. */

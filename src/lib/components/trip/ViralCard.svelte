@@ -1,6 +1,13 @@
 <script lang="ts">
 	import type { ViralSpot, RestaurantSource } from '$lib/trips';
+	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
 	let { spot }: { spot: ViralSpot } = $props();
+
+	// Google Maps hand-off: name search anchored at the coords → the actual
+	// place listing, not a bare dropped pin.
+	const mapUrl = $derived(
+		spot.coords ? gmapsSearchUrl({ coords: spot.coords, name: spot.title }) : null
+	);
 
 	const heatLabel: Record<ViralSpot['heat'], string> = {
 		fire: '🔥 on fire',
@@ -85,23 +92,35 @@
 			>
 		{/each}
 	</div>
-	{#if source}
+	{#if source || mapUrl}
 		<div class="mt-[9px] flex flex-wrap items-center gap-2">
-			{#if spot.socialUrl}
-				<!-- External social link (TikTok/Instagram) — not SvelteKit navigation -->
+			{#if source}
+				{#if spot.socialUrl}
+					<!-- External social link (TikTok/Instagram) — not SvelteKit navigation -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						class="{srcBadgeClass} {source.tone} hover:brightness-[0.97]"
+						href={spot.socialUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						{source.icon}
+						{source.label}
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{:else}
+					<span class="{srcBadgeClass} {source.tone}">{source.icon} {source.label}</span>
+				{/if}
+			{/if}
+			{#if mapUrl}
 				<!-- eslint-disable svelte/no-navigation-without-resolve -->
 				<a
-					class="{srcBadgeClass} {source.tone} hover:brightness-[0.97]"
-					href={spot.socialUrl}
+					class="text-[10.5px] font-semibold text-(--ink3) no-underline hover:text-(--ink2) hover:underline"
+					href={mapUrl}
 					target="_blank"
-					rel="noopener noreferrer"
+					rel="noopener noreferrer">📍 Map</a
 				>
-					{source.icon}
-					{source.label}
-				</a>
 				<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			{:else}
-				<span class="{srcBadgeClass} {source.tone}">{source.icon} {source.label}</span>
 			{/if}
 		</div>
 	{/if}

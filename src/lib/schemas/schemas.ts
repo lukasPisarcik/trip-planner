@@ -223,6 +223,48 @@ export const RestaurantsTabSchema = z.object({
 	note: z.string()
 });
 
+// ── Accommodation (mirrors the restaurants section) ─────────────────────────
+
+export const AccommodationTypeSchema = z.enum([
+	'hostel',
+	'hotel',
+	'airbnb',
+	'apartment',
+	'guesthouse',
+	'camping'
+]);
+
+export const AccommodationPlaceSchema = z.object({
+	type: AccommodationTypeSchema,
+	name: z.string(),
+	location: z.string(), // neighbourhood / address-ish
+	description: z.string(),
+	pricePerNight: z.string(), // e.g. "€24 dorm / €78 private" — research snapshot
+	rating: z.number().min(0).max(10), // Hostelworld-style 0–10
+	ratingCount: z.number().int().min(0),
+	tags: z.array(z.string()), // "female dorms", "free breakfast", …
+	// http(s) only — these come from AI web research and are rendered as hrefs,
+	// so a javascript: URL must never validate.
+	bookingUrl: z.url({ protocol: /^https?$/ }).optional(), // Hostelworld/Booking/Airbnb listing page
+	mapUrl: z.url({ protocol: /^https?$/ }).optional(),
+	// Optional location so the stay can be plotted on the trip map backdrop.
+	coords: CoordsSchema.optional(),
+	image: ImageSchema.optional()
+});
+
+export const AccommodationCitySchema = z.object({
+	city: z.string(),
+	flag: z.string().optional(),
+	nights: z.string().optional(), // e.g. "3 nights · Dec 20–23"
+	places: z.array(AccommodationPlaceSchema)
+});
+
+export const AccommodationTabSchema = z.object({
+	callout: z.string(),
+	cities: z.array(AccommodationCitySchema),
+	note: z.string()
+});
+
 export const FlightInfoLineSchema = z.object({
 	label: z.string(),
 	value: z.string()
@@ -326,6 +368,9 @@ export const TripSchema = z.object({
 	budget: BudgetTabSchema,
 	tips: TipsTabSchema,
 	restaurants: RestaurantsTabSchema.optional(),
+	// Optional like restaurants — old trips keep validating; the co-pilot fills it
+	// via the replace_accommodation tool.
+	accommodation: AccommodationTabSchema.optional(),
 	brainstorm: BrainstormSchema.optional(),
 	// User-toggled favorite (shown in the sidebar Favorites section). Optional so
 	// existing stored trips and the committed snapshot parse unchanged. The AI
@@ -535,8 +580,9 @@ export const ChatProviderSchema = z.enum(['anthropic', 'openai']);
 export type ChatProvider = z.infer<typeof ChatProviderSchema>;
 
 export const ChatModelSchema = z.enum([
-	'claude-opus-4-8',
-	'claude-sonnet-4-6',
+	'claude-fable-5',
+	'claude-opus-5',
+	'claude-sonnet-5',
 	'claude-haiku-4-5-20251001',
 	// OpenAI / Codex models, run via the local Codex CLI. Adjust these ids to
 	// match the models your installed Codex CLI accepts.
@@ -556,17 +602,24 @@ export interface ChatModelMeta {
 
 export const CHAT_MODELS: ReadonlyArray<ChatModelMeta> = [
 	{
-		id: 'claude-opus-4-8',
+		id: 'claude-fable-5',
 		provider: 'anthropic',
 		vendor: 'Claude',
-		label: 'Opus 4.8',
+		label: 'Fable 5',
+		blurb: 'Frontier'
+	},
+	{
+		id: 'claude-opus-5',
+		provider: 'anthropic',
+		vendor: 'Claude',
+		label: 'Opus 5',
 		blurb: 'Most capable'
 	},
 	{
-		id: 'claude-sonnet-4-6',
+		id: 'claude-sonnet-5',
 		provider: 'anthropic',
 		vendor: 'Claude',
-		label: 'Sonnet 4.6',
+		label: 'Sonnet 5',
 		blurb: 'Balanced'
 	},
 	{
@@ -586,7 +639,7 @@ export const CHAT_MODELS: ReadonlyArray<ChatModelMeta> = [
 	{ id: 'gpt-5', provider: 'openai', vendor: 'OpenAI', label: 'GPT-5', blurb: 'General purpose' }
 ];
 
-export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-4-6';
+export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-5';
 
 /** Metadata for a model id (falls back to the first model for unknown ids). */
 export function modelMeta(id: ChatModel): ChatModelMeta {

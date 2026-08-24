@@ -2,8 +2,9 @@
 	import type { Trip, Day } from '$lib/trips';
 	import Hero from './Hero.svelte';
 	import TabBar from './TabBar.svelte';
-	import TripMap from './TripMap.svelte';
+	import TripMap, { hasGoogleMapsKey } from './TripMap.svelte';
 	import { buildAllSpots, dayFocus } from './tabs/mapLayers';
+	import { tripKml } from '$lib/helpers/kml';
 	import ItineraryTab from './tabs/ItineraryTab.svelte';
 	import TransportTab from './tabs/TransportTab.svelte';
 	import ViralTab from './tabs/ViralTab.svelte';
@@ -11,6 +12,7 @@
 	import BudgetTab from './tabs/BudgetTab.svelte';
 	import TipsTab from './tabs/TipsTab.svelte';
 	import RestaurantsTab from './tabs/RestaurantsTab.svelte';
+	import AccommodationTab from './tabs/AccommodationTab.svelte';
 	import BrainstormTab from './tabs/BrainstormTab.svelte';
 
 	let { trip, viewerMode = false }: { trip: Trip; viewerMode?: boolean } = $props();
@@ -21,6 +23,7 @@
 		{ id: 'transport', label: '🚌 Transport' },
 		{ id: 'viral', label: '📸 Viral Spots' },
 		{ id: 'restaurants', label: '🍽️ Food & Drink' },
+		{ id: 'accommodation', label: '🛏️ Stay' },
 		{ id: 'flights', label: '✈️ Flights' },
 		{ id: 'budget', label: '💶 Budget' },
 		{ id: 'tips', label: '💡 Tips' }
@@ -43,8 +46,9 @@
 	// ── Map backdrop ──────────────────────────────────────────────────────────
 	// One constant marker set, derived from the trip, shown on every tab.
 	const layers = $derived(buildAllSpots(trip));
-	// No coordinates anywhere → no backdrop; fall back to the solid hero banner.
-	const hasMap = $derived(layers.spots.length > 0);
+	// No coordinates anywhere (or no Google Maps API key configured) → no
+	// backdrop; fall back to the solid hero banner.
+	const hasMap = $derived(hasGoogleMapsKey && layers.spots.length > 0);
 
 	let tripMap = $state<ReturnType<typeof TripMap> | undefined>(undefined);
 	let focusedKey = $state<string | null>(null);
@@ -64,15 +68,19 @@
 
 	let scrollY = $state(0);
 	let innerH = $state(800);
+	let innerW = $state(1024);
 	let fullscreen = $state(false);
 
-	// Expanded height is capped so it never dominates short viewports.
-	const expanded = $derived(Math.min(520, Math.round(innerH * 0.52)));
+	// Expanded height is capped so it never dominates short viewports; on small
+	// screens the ratio drops so the peek + hero don't eat the viewport.
+	const expanded = $derived(
+		innerW < 640 ? Math.round(innerH * 0.42) : Math.min(520, Math.round(innerH * 0.52))
+	);
 	// The stage's layout height is CONSTANT — it scrolls away naturally (sticky
 	// with a negative top, see .map-stage) until only the COLLAPSED peek stays
 	// pinned under the header. Never tie this to scrollY: shrinking the sticky
 	// stage per scroll frame resizes the document mid-scroll (scroll-anchoring
-	// feedback loop) and forces Leaflet to re-tile every frame.
+	// feedback loop) and forces the map to re-render every frame.
 	const mapHeight = $derived(fullscreen ? Math.round(innerH * 0.88) : expanded);
 	// How much of the map's top has scrolled out of view — lets fitBounds target
 	// the still-visible bottom slice when a day is focused from a scrolled page.
@@ -85,6 +93,47 @@
 	function toggleFullscreen() {
 		fullscreen = !fullscreen;
 	}
+
+	// ── Hero engage-fade ────────────────────────────────────────────────────────
+	// While the pointer is over the map stage (or after a touch on it), the glass
+	// hero condenses and fades so it stops covering the top-left of the map.
+	let mapEngaged = $state(false);
+	let engageTimer = 0;
+	function engageMap() {
+		mapEngaged = true;
+		clearTimeout(engageTimer);
+	}
+	function disengageMap() {
+		mapEngaged = false;
+		clearTimeout(engageTimer);
+	}
+	/** Touch has no pointerleave — hold the engaged state briefly, then release. */
+	function engageMapFromTouch() {
+		mapEngaged = true;
+		clearTimeout(engageTimer);
+		engageTimer = window.setTimeout(() => (mapEngaged = false), 4000);
+	}
+
+	// Measured height of the glass hero overlay (px) — fitBounds pads past it so
+	// pins never spawn underneath. Bound from the Hero component.
+	let heroHeight = $state(0);
+
+	// ── KML export (Google My Maps hand-off) ────────────────────────────────────
+	function downloadKml() {
+		const blob = new Blob([tripKml(trip.title, layers.spots)], {
+			type: 'application/vnd.google-earth.kml+xml'
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `${trip.slug}.kml`;
+		a.click();
+		// Deferred: a same-task revoke can abort the download in Safari.
+		setTimeout(() => URL.revokeObjectURL(url), 0);
+	}
+
+	// Don't leave the touch-engage timer running after unmount.
+	$effect(() => () => clearTimeout(engageTimer));
 
 	// rAF-throttled window scroll → scrollY, which only drives cheap state (the
 	// `scrolled` boolean + `hiddenTop`) — never layout. Also tracks viewport height.
@@ -99,7 +148,11 @@
 					raf = 0;
 				});
 		};
-		const onResize = () => (innerH = window.innerHeight);
+		innerW = window.innerWidth;
+		const onResize = () => {
+			innerH = window.innerHeight;
+			innerW = window.innerWidth;
+		};
 		window.addEventListener('scroll', onScroll, { passive: true });
 		window.addEventListener('resize', onResize);
 		return () => {
@@ -135,9 +188,11 @@
 	// mode: sticky with a NEGATIVE top so it scrolls away naturally, sticking once
 	// only the COLLAPSED peek shows under the header. z-2 keeps the opaque peek
 	// above the content column (z-1), so scrolled content slides in behind it.
+	// Fullscreen sits at z-22 (scrim z-21) so the AI-panel drawer (scrim z-25,
+	// panel z-30) always overlays a fullscreen map instead of tying with it.
 	const stageClass = $derived(
 		'grid *:col-start-1 *:row-start-1 *:min-w-0 bg-(--cream) ' +
-			(fullscreen ? 'fixed inset-x-0 top-(--header-h) z-25' : 'sticky top-(--map-peek-top) z-2')
+			(fullscreen ? 'fixed inset-x-0 top-(--header-h) z-22' : 'sticky top-(--map-peek-top) z-2')
 	);
 
 	const mapBtnClass =
@@ -158,12 +213,26 @@
 	{#if hasMap}
 		<!-- Persistent backdrop: mounted once, NEVER inside the {#if active} switch,
 		     so switching tabs never remounts or reloads it. -->
+		<!-- Pointer handlers only sense presence over the map cell (hero fade) —
+		     the stage isn't itself an interactive control. -->
 		<div
 			class={stageClass}
 			style="height: {mapHeight}px; --map-peek-top: {HEADER_H + COLLAPSED - expanded}px"
+			role="presentation"
+			onpointerenter={engageMap}
+			onpointerleave={disengageMap}
+			onpointerdown={engageMapFromTouch}
 		>
-			<TripMap bind:this={tripMap} {layers} height={mapHeight} {interactive} {hiddenTop} />
-			<Hero {trip} glass compact={scrolled} />
+			<TripMap
+				bind:this={tripMap}
+				{layers}
+				height={mapHeight}
+				{interactive}
+				{fullscreen}
+				{hiddenTop}
+				topOverlay={heroHeight}
+			/>
+			<Hero {trip} glass compact={scrolled} engaged={mapEngaged} bind:overlayHeight={heroHeight} />
 			<!-- Controls ride the peek: sticky below the header, like the hero. -->
 			<div
 				class="pointer-events-none sticky top-(--header-h) z-3 flex gap-2 self-start justify-self-end p-3"
@@ -171,6 +240,15 @@
 				{#if focusedKey}
 					<button type="button" class={mapBtnClass} onclick={showAll}>Show all spots</button>
 				{/if}
+				<button
+					type="button"
+					class={mapBtnClass}
+					onclick={downloadKml}
+					aria-label="Download all spots as KML"
+					title="Download KML — import into Google My Maps (mymaps.google.com) to open every spot in the Google Maps app"
+				>
+					⬇
+				</button>
 				<button
 					type="button"
 					class={mapBtnClass}
@@ -185,7 +263,7 @@
 		{#if fullscreen}
 			<button
 				type="button"
-				class="fixed inset-x-0 top-(--header-h) bottom-0 z-24 cursor-pointer border-0 bg-black/40 p-0"
+				class="fixed inset-x-0 top-(--header-h) bottom-0 z-21 cursor-pointer border-0 bg-black/40 p-0"
 				aria-label="Close expanded map"
 				onclick={toggleFullscreen}
 			></button>
@@ -210,6 +288,8 @@
 				<ViralTab data={trip.viral} />
 			{:else if active === 'restaurants'}
 				<RestaurantsTab data={trip.restaurants} />
+			{:else if active === 'accommodation'}
+				<AccommodationTab data={trip.accommodation} />
 			{:else if active === 'flights'}
 				<FlightsTab data={trip.flights} />
 			{:else if active === 'budget'}

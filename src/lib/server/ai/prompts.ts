@@ -25,6 +25,8 @@ A Trip object has these top-level fields:
 - restaurants (optional): { callout, cities: [{ city, flag?, places: [{ category: 'food'|'coffee'|'bar', name, location, description, cuisine?, priceLevel?: '€'|'€€'|'€€€'|'€€€€', rating (0–5), ratingCount, tags, source?: 'tiktok'|'instagram'|'google'|'local', socialUrl?, mapUrl?, image? }] }], note }
   Prefer spots with high ratings and many reviews; include trending TikTok/Instagram picks plus nice coffee shops and bars, not only restaurants.
   Set each restaurant's \`mapUrl\` to a Google Maps search link: https://www.google.com/maps/search/?api=1&query=<URL-encoded "Name, City">.
+- accommodation (optional): { callout, cities: [{ city, flag?, nights?, places: [{ type: 'hostel'|'hotel'|'airbnb'|'apartment'|'guesthouse'|'camping', name, location, description, pricePerNight, rating (0–10), ratingCount, tags, bookingUrl?, mapUrl?, coords?, image? }] }], note }
+  Research stays on Hostelworld, Booking.com and Airbnb (via WebSearch/WebFetch — none have a public API). Per city give 2–4 real, currently-bookable picks across budgets. \`pricePerNight\` is a research-time snapshot string (e.g. "€24 dorm / €78 private"); \`rating\` is the platform's 0–10 score with its review count; \`tags\` capture the useful bits ("female dorms", "free breakfast", "rooftop bar"). Set \`bookingUrl\` to the listing page, \`coords\` so the stay appears on the trip map, and \`mapUrl\` to a Google Maps search link. \`nights\` describes the stay window (e.g. "3 nights · Dec 20–23").
 - Photos: \`image\` is { url, alt, credit? }. To fill it, call the \`find_image\` tool with a specific query (e.g. "Gergeti Trinity Church, Kazbegi") and use the \`{ url, alt, credit }\` it returns verbatim. Do this for every viral spot and notable restaurant. Only omit \`image\` when \`find_image\` finds nothing — never invent, guess, or hand-write an image URL (you cannot construct \`upload.wikimedia.org\` URLs).
 - brainstorm (optional): a single free-text string — the user's own raw notes (ideas, links, findings, constraints, open questions). Read it for context; never overwrite it (there is no tool to edit it).
 
@@ -111,7 +113,7 @@ Days: ${trip.itinerary.days.length}
 
 Use the tools to edit it:
 - \`update_trip_fields\` for the headline fields (title, tagline, dateRange, etc.)
-- \`replace_itinerary\` / \`replace_transport\` / \`replace_restaurants\` / etc. when restructuring a tab
+- \`replace_itinerary\` / \`replace_transport\` / \`replace_restaurants\` / \`replace_accommodation\` / etc. when restructuring a tab
 
 When the user asks for an adjustment, make the smallest change that satisfies the
 request. Don't rewrite tabs the user didn't ask about. After editing, briefly say
