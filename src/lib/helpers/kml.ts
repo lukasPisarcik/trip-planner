@@ -4,6 +4,7 @@
 // it's Bun-testable; the download anchor lives in the map control (TripView).
 
 import type { MapSpot, SpotCategory } from '$lib/components/trip/tabs/mapLayers';
+import { gmapsSearchUrl } from './gmaps';
 
 const CATEGORY_LABEL: Record<SpotCategory, string> = {
 	activity: 'Itinerary stops',
@@ -33,13 +34,18 @@ export function tripKml(tripName: string, spots: MapSpot[]): string {
 		const inCategory = spots.filter((s) => s.category === category);
 		if (inCategory.length === 0) return '';
 		const placemarks = inCategory
-			.map(
-				(s) =>
+			.map((s) => {
+				// Balloon link to the real Google Maps listing (name search anchored
+				// at the coords) — a My Maps pin is otherwise just a dropped pin.
+				const url = gmapsSearchUrl({ coords: { lat: s.lat, lng: s.lng }, name: s.title });
+				return (
 					`      <Placemark>\n` +
 					`        <name>${escapeXml(s.icon ? `${s.icon} ${s.title}` : s.title)}</name>\n` +
+					`        <description><![CDATA[<a href="${url}">Open in Google Maps</a>]]></description>\n` +
 					`        <Point><coordinates>${s.lng},${s.lat},0</coordinates></Point>\n` +
 					`      </Placemark>`
-			)
+				);
+			})
 			.join('\n');
 		return (
 			`    <Folder>\n` +

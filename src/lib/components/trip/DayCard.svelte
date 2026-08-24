@@ -6,6 +6,15 @@
 
 	const mapLinkClass =
 		'mt-1 inline-block text-[10.5px] font-semibold text-(--ink3) no-underline hover:text-(--ink2) hover:underline';
+
+	/** Activities search by name (anchored at coords → real place listing);
+	 * transit legs keep the plain coordinate pin — "Vienna → Tokyo" isn't a place. */
+	function itemMapUrl(item: Day['items'][number]): string | null {
+		if (!item.coords) return null;
+		return gmapsSearchUrl(
+			item.kind === 'activity' ? { coords: item.coords, name: item.title } : { coords: item.coords }
+		);
+	}
 	// svelte-ignore state_referenced_locally
 	let open = $state(day.defaultOpen ?? false);
 
@@ -83,7 +92,7 @@
 								<!-- eslint-disable svelte/no-navigation-without-resolve -->
 								<a
 									class={mapLinkClass}
-									href={gmapsSearchUrl({ coords: item.coords })}
+									href={itemMapUrl(item)}
 									target="_blank"
 									rel="noopener noreferrer">📍 Map</a
 								>
@@ -117,7 +126,7 @@
 								<!-- eslint-disable svelte/no-navigation-without-resolve -->
 								<a
 									class="{mapLinkClass} {item.tag ? 'ml-2' : ''}"
-									href={gmapsSearchUrl({ coords: item.coords })}
+									href={itemMapUrl(item)}
 									target="_blank"
 									rel="noopener noreferrer">📍 Map</a
 								>

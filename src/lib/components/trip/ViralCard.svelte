@@ -3,8 +3,11 @@
 	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
 	let { spot }: { spot: ViralSpot } = $props();
 
-	// Google Maps hand-off for coord-bearing spots.
-	const mapUrl = $derived(spot.coords ? gmapsSearchUrl({ coords: spot.coords }) : null);
+	// Google Maps hand-off: name search anchored at the coords → the actual
+	// place listing, not a bare dropped pin.
+	const mapUrl = $derived(
+		spot.coords ? gmapsSearchUrl({ coords: spot.coords, name: spot.title }) : null
+	);
 
 	const heatLabel: Record<ViralSpot['heat'], string> = {
 		fire: '🔥 on fire',

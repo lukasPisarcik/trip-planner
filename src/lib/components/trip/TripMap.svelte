@@ -135,15 +135,23 @@
 		return fullscreen ? 'greedy' : 'cooperative';
 	}
 
-	/** Info-window content: name + an "Open in Google Maps" hand-off link. */
-	function infoContent(title: string, icon: string | undefined, pos: google.maps.LatLngLiteral) {
+	/** Info-window content: name + an "Open in Google Maps" hand-off link.
+	 * `display` may carry a route number ("3. Meiji Shrine"); `placeName` is the
+	 * raw name the link searches for, anchored at the coords, so Google opens the
+	 * actual place listing instead of a bare dropped pin. */
+	function infoContent(
+		display: string,
+		icon: string | undefined,
+		pos: google.maps.LatLngLiteral,
+		placeName: string
+	) {
 		const wrap = document.createElement('div');
 		wrap.className = 'flex flex-col gap-1 pr-1 text-[12.5px] leading-[1.45] text-(--ink)';
 		const name = document.createElement('div');
 		name.className = 'font-semibold';
-		name.textContent = icon ? `${icon} ${title}` : title;
+		name.textContent = icon ? `${icon} ${display}` : display;
 		const link = document.createElement('a');
-		link.href = gmapsSearchUrl({ coords: pos }) ?? '#';
+		link.href = gmapsSearchUrl({ coords: pos, name: placeName }) ?? '#';
 		link.target = '_blank';
 		link.rel = 'noopener noreferrer';
 		link.textContent = 'Open in Google Maps ↗';
@@ -154,12 +162,13 @@
 
 	function openInfo(
 		anchor: google.maps.marker.AdvancedMarkerElement,
-		title: string,
+		display: string,
 		icon: string | undefined,
-		pos: google.maps.LatLngLiteral
+		pos: google.maps.LatLngLiteral,
+		placeName: string
 	) {
 		if (!info || !map) return;
-		info.setContent(infoContent(title, icon, pos));
+		info.setContent(infoContent(display, icon, pos, placeName));
 		info.open({ map, anchor });
 	}
 
@@ -186,7 +195,7 @@
 				title: spot.title,
 				gmpClickable: true
 			});
-			marker.addListener('click', () => openInfo(marker, spot.title, spot.icon, pos));
+			marker.addListener('click', () => openInfo(marker, spot.title, spot.icon, pos, spot.title));
 			spotMarkers.push(marker);
 		}
 	}
@@ -242,7 +251,9 @@
 					zIndex: 1000,
 					gmpClickable: true
 				});
-				marker.addListener('click', () => openInfo(marker, `${p.n}. ${p.title}`, p.icon, pos));
+				marker.addListener('click', () =>
+					openInfo(marker, `${p.n}. ${p.title}`, p.icon, pos, p.title)
+				);
 				routeMarkers.push(marker);
 			}
 		}

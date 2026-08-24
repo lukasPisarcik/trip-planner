@@ -56,4 +56,11 @@ describe('tripKml', () => {
 	test('placemark names keep the spot icon prefix', () => {
 		expect(kml).toContain('<name>🔥 Rooftop</name>');
 	});
+
+	test('each placemark balloon links to the real Google Maps listing', () => {
+		expect(kml.match(/<description><!\[CDATA\[<a href="/g)).toHaveLength(4);
+		expect(kml).toContain(
+			'<a href="https://www.google.com/maps/search/Circus%20Hostel/@52.53,13.41,17z">Open in Google Maps</a>'
+		);
+	});
 });
