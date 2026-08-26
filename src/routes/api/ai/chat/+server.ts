@@ -170,11 +170,23 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			// stays the user's own words — see userMsg above). Best-effort: a hydration
 			// failure just drops the block, leaving the plain prompt.
 			let agentMessage = message;
+			// Ids actually hydrated this turn — persisted in finalize() so the next
+			// same-provider resume can skip them.
+			let hydratedReelIds: string[] = [];
 			if (attachments?.length) {
 				try {
+					// Same-provider resume: reel context from earlier turns already lives in
+					// the provider's native thread, so re-hydrating known ids would duplicate
+					// it on every retry/continue. A provider switch starts a fresh native
+					// thread and must re-hydrate everything.
+					const known = new Set(canResume ? (chat.attachedReelIds ?? []) : []);
+					const freshIds = attachments.map((a) => a.reelId).filter((id) => !known.has(id));
 					const { hydrateReels } = await import('$lib/server/services/reels.service');
-					const reels = await hydrateReels(attachments.map((a) => a.reelId));
-					if (reels.length) agentMessage = `${buildReelContext(reels)}\n\n${message}`;
+					const reels = freshIds.length ? await hydrateReels(freshIds) : [];
+					if (reels.length) {
+						agentMessage = `${buildReelContext(reels)}\n\n${message}`;
+						hydratedReelIds = reels.map((r) => r.id);
+					}
 					log.info(
 						{ reqId, requested: attachments.length, hydrated: reels.length },
 						'Chat request: hydrated attached reels'
@@ -198,6 +210,11 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			// persisted in finalize() so the next turn resumes with the right SDK.
 			let capturedProvider: ChatProvider = turnProvider;
 			let capturedThreadId: string | null = null;
+			// True once the provider streams any REAL event (thread-id is synthetic and
+			// auth-required means nothing was ingested). Gates the attachedReelIds
+			// persist: a turn that died before the native session saw the prompt must
+			// not mark its reels as hydrated, or their context would be lost forever.
+			let providerActivity = false;
 
 			// Live thinking block being accumulated (a turn can have several,
 			// interleaved with tool calls). Flushed into newMessages on stop.
@@ -269,6 +286,13 @@ export const POST: RequestHandler = async ({ request, url }) => {
 							capturedThreadId
 						);
 					}
+					// Best-effort: remember which reels were folded into the native thread
+					// this turn, so a same-provider resume doesn't re-inject them. Only
+					// once the provider demonstrably processed the prompt — a turn that
+					// died pre-ingestion must re-hydrate on retry.
+					if (hydratedReelIds.length && providerActivity) {
+						await chatsService.addAttachedReels(chat.sessionId, hydratedReelIds);
+					}
 				} catch (e) {
 					log.error({ err: e }, 'Failed to persist chat messages');
 				}
@@ -285,6 +309,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 					codexThreadId: chat.providerThreadId ?? null,
 					mcpBaseUrl: url.origin
 				})) {
+					if (ev.type !== 'thread-id' && ev.type !== 'auth-required') providerActivity = true;
 					switch (ev.type) {
 						case 'thread-id':
 							// Provider + native resume id learned this turn; persisted in finalize().

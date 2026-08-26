@@ -1,6 +1,7 @@
 import { api } from '$convex/_generated/api';
-import { type TripHeadlinePatch } from '$lib/schemas';
-import { type Trip } from '$lib/trips';
+import { formatZodErrors } from '$lib/helpers/formatZodErrors';
+import { TripSchema, type TripHeadlinePatch } from '$lib/schemas';
+import { type Day, type Trip } from '$lib/trips';
 import { convex, ownerSecret } from '../data/convex';
 import { isViewerMode } from '../env.server';
 import {
@@ -25,12 +26,53 @@ export async function getTrip(slug: string): Promise<Trip | null> {
 	return (await convex().query(api.trips.getTrip, { slug })) as Trip | null;
 }
 
+// Schema-valid empty shells for the six core tabs. A skeleton `create_trip` fills
+// absent tabs with these so the trip renders immediately and each later tab write
+// is its own small checkpoint (a mid-build abort keeps all completed writes).
+function emptyTripTabs() {
+	return {
+		itinerary: { callout: '', days: [] },
+		transport: { callout: '', groups: [], note: '' },
+		viral: { callout: '', sections: [], note: '' },
+		flights: { sectionLabel: '', primary: [], secondary: [], note: '' },
+		budget: { variants: [], totalNote: '' },
+		tips: { sectionLabel: '', cards: [], note: '' }
+	};
+}
+
 export async function createTrip(input: unknown): Promise<string> {
 	assertWritable();
+	// Merge the (possibly skeleton) input over the empty shells. Drop explicit
+	// `undefined` values so an optional-but-present key can't clobber a shell.
+	const skeleton = Object.fromEntries(
+		Object.entries((input ?? {}) as Record<string, unknown>).filter(([, v]) => v !== undefined)
+	);
+	const assembled = { ...emptyTripTabs(), ...skeleton };
+	// Guarantee the assembled trip is a valid Trip *here* — the Convex mutation
+	// re-validates, but failing fast gives the agent an actionable error.
+	const parsed = TripSchema.safeParse(assembled);
+	if (!parsed.success) {
+		// formatZodErrors returns structured issue objects — stringify them so the
+		// agent sees which field failed instead of "[object Object]".
+		throw new Error(
+			`create_trip payload invalid: ${JSON.stringify(formatZodErrors(parsed.error))}`
+		);
+	}
 	// Backfill any viral-spot/restaurant images the agent left empty (best-effort).
-	const trip = await backfillTripImages(input);
-	// Validation (TripSchema) happens authoritatively inside the Convex mutation.
+	const trip = await backfillTripImages(parsed.data);
 	return await convex().mutation(api.trips.createTrip, { secret: ownerSecret(), trip });
+}
+
+export async function upsertItineraryDays(slug: string, days: Day[]): Promise<void> {
+	assertWritable();
+	// The day-number merge happens inside the Convex mutation (one transaction),
+	// so overlapping chunk writes from parallel tool calls can't clobber each
+	// other. The merge logic itself lives in $lib/helpers/mergeItineraryDays.
+	await convex().mutation(api.trips.upsertItineraryDays, {
+		secret: ownerSecret(),
+		slug,
+		days
+	});
 }
 
 export async function updateTripFields(slug: string, patch: TripHeadlinePatch): Promise<void> {

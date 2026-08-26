@@ -1,6 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib';
-import { PrivateEnvValue } from '../../env.server';
+import { PrivateEnvValue, subprocessEnv } from '../../env.server';
 import { tripMcpServer, tripAllowedToolNames } from '../tools';
 import { AgentTimeoutError, createTurnWatchdog, type NormalizedTurnEvent } from '../events';
 import type { AgentTurnOptions } from '../agent';
@@ -41,9 +41,24 @@ export async function* runClaudeTurn(
 	const claudePath = PrivateEnvValue('CLAUDE_CODE_PATH');
 	const model = requestedModel ?? PrivateEnvValue('ANTHROPIC_MODEL');
 	const stallMs = PrivateEnvValue('AGENT_STALL_TIMEOUT_MS');
+	const firstEventMs = PrivateEnvValue('AGENT_FIRST_EVENT_TIMEOUT_MS');
 	const maxMs = PrivateEnvValue('AGENT_MAX_TURN_MS');
+	const maxOutputTokens = PrivateEnvValue('AGENT_MAX_OUTPUT_TOKENS');
+	const maxThinkingTokens = PrivateEnvValue('AGENT_MAX_THINKING_TOKENS');
 	const stderr = makeStderrCapture('runClaudeTurn');
-	const wd = createTurnWatchdog(signal, stallMs, maxMs);
+	// Graceful stop at the runtime cap: interrupt ends the turn like pressing Esc —
+	// the CLI shuts down in order and the session stays resumable. Assigned once the
+	// SDK query exists (inside the try, so a synchronous query() throw can never
+	// leave a timer referencing an uninitialized binding); until then — and if
+	// interrupt throws (e.g. unsupported for single-prompt sessions) — fall back to
+	// the hard abort. The watchdog's 30s backstop covers a no-op interrupt.
+	let softInterrupt: (() => void) | null = null;
+	const wd = createTurnWatchdog(signal, {
+		stallMs,
+		firstEventMs,
+		maxMs,
+		onSoftMax: () => (softInterrupt ? softInterrupt() : wd.ctrl.abort())
+	});
 
 	log.info(
 		{
@@ -54,35 +69,13 @@ export async function* runClaudeTurn(
 			messageChars: message.length,
 			systemPromptChars: systemPrompt.length,
 			stallMs,
-			maxMs
+			firstEventMs,
+			maxMs,
+			maxOutputTokens,
+			maxThinkingTokens
 		},
 		'Starting Claude turn'
 	);
-
-	const q = query({
-		prompt: message,
-		options: {
-			model,
-			systemPrompt,
-			mcpServers: { 'trip-planner': tripMcpServer },
-			// Trip tools + the CLI's built-in web tools so the agent can verify
-			// current hours/prices/ratings and surface trending spots. `tools` lists
-			// the enabled built-ins; `allowedTools` is the no-prompt allowlist.
-			allowedTools: [...tripAllowedToolNames, ...WEB_TOOLS],
-			tools: [...WEB_TOOLS],
-			// Isolate the agent from the host's Claude Code config (global MCP servers,
-			// tool allow-lists). `[]` = SDK isolation; `strictMcpConfig` honors only the
-			// servers below.
-			settingSources: [],
-			strictMcpConfig: true,
-			disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'NotebookEdit'],
-			includePartialMessages: true,
-			stderr: stderr.cb,
-			...(resume ? { resume: sessionId } : { sessionId }),
-			...(claudePath ? { pathToClaudeCodeExecutable: claudePath } : {}),
-			abortController: wd.ctrl
-		}
-	});
 
 	let count = 0;
 	let lastUsedTokens = 0;
@@ -96,8 +89,42 @@ export async function* runClaudeTurn(
 	// dispatch is uniform across providers (Codex emits its own thread id instead).
 	yield { type: 'thread-id', provider: 'anthropic', id: sessionId };
 
-	wd.resetStall();
+	// query() can throw synchronously (e.g. a missing CLI binary) — created inside
+	// the try so the finally always clears the watchdog timers.
 	try {
+		const q = query({
+			prompt: message,
+			options: {
+				model,
+				systemPrompt,
+				maxThinkingTokens,
+				// The spawned CLI honours CLAUDE_CODE_MAX_OUTPUT_TOKENS; its 32K default
+				// truncated large tool calls mid-JSON (see AGENT_MAX_OUTPUT_TOKENS).
+				env: subprocessEnv({ CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens) }),
+				mcpServers: { 'trip-planner': tripMcpServer },
+				// Trip tools + the CLI's built-in web tools so the agent can verify
+				// current hours/prices/ratings and surface trending spots. `tools` lists
+				// the enabled built-ins; `allowedTools` is the no-prompt allowlist.
+				allowedTools: [...tripAllowedToolNames, ...WEB_TOOLS],
+				tools: [...WEB_TOOLS],
+				// Isolate the agent from the host's Claude Code config (global MCP servers,
+				// tool allow-lists). `[]` = SDK isolation; `strictMcpConfig` honors only the
+				// servers below.
+				settingSources: [],
+				strictMcpConfig: true,
+				disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'NotebookEdit'],
+				includePartialMessages: true,
+				stderr: stderr.cb,
+				...(resume ? { resume: sessionId } : { sessionId }),
+				...(claudePath ? { pathToClaudeCodeExecutable: claudePath } : {}),
+				abortController: wd.ctrl
+			}
+		});
+		softInterrupt = () => {
+			q.interrupt().catch(() => wd.ctrl.abort());
+		};
+
+		wd.resetStall();
 		for await (const msg of q) {
 			wd.resetStall();
 			count++;
@@ -203,10 +230,17 @@ export async function* runClaudeTurn(
 				if (msg.subtype === 'error_max_turns' || msg.subtype === 'error_during_execution') {
 					yield { type: 'turn-error', subtype: msg.subtype };
 				}
+				// A soft-interrupted stream ends cleanly (interrupt ≙ Esc) — still surface
+				// the timeout so the route persists the "ran out of time — continue" message.
+				// But a turn whose final message merely RACED the cap (a clean success) is
+				// not a timeout — don't report one.
+				const cleanSuccess = msg.subtype === 'success' && !msg.is_error;
+				if (wd.timedOut() === 'max' && !cleanSuccess) throw new AgentTimeoutError('max');
 				log.info({ sessionId, messages: count }, 'Claude turn finished');
 				return;
 			}
 		}
+		if (wd.timedOut() === 'max') throw new AgentTimeoutError('max');
 		log.info({ sessionId, messages: count }, 'Claude turn finished (stream end)');
 	} catch (err) {
 		const reason = wd.timedOut();

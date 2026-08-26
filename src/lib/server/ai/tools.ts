@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib';
 import {
-	TripSchema,
+	TripSkeletonSchema,
 	TripHeadlinePatchSchema,
+	UpsertItineraryDaysInputSchema,
 	ItineraryTabSchema,
 	TransportTabSchema,
 	ViralTabSchema,
@@ -183,10 +184,15 @@ const askUserTool = tool(
 
 const createTripTool = tool(
 	'create_trip',
-	'Create a brand-new trip. Provide the full Trip object. Slug must be unique. Populate viral-spot ' +
-		'and restaurant `image` fields by calling `find_image` per place (never hand-write image URLs), ' +
-		'and set every restaurant `mapUrl` to a Google Maps search link.',
-	TripSchema.shape,
+	'Create a brand-new trip from a SKELETON: provide the headline fields (slug, title, flag/flags, ' +
+		'accent, eyebrow, subtitle, dateRange, tagline, heroPills, cardPills, highlights) and leave the ' +
+		'tab payloads out — they default to empty shells and the trip page renders immediately. Create ' +
+		'the skeleton first, then fill the itinerary in small chunks with `upsert_itinerary_days` and ' +
+		'each remaining tab with its `replace_*` tool (every write persists immediately as a ' +
+		'checkpoint). Never send the whole trip in this one call. Slug must be unique. Populate ' +
+		'viral-spot and restaurant `image` fields by calling `find_image` per place (never hand-write ' +
+		'image URLs), and set every restaurant `mapUrl` to a Google Maps search link.',
+	TripSkeletonSchema.shape,
 	async (args) => {
 		try {
 			const id = await tripsService.createTrip(args);
@@ -194,6 +200,25 @@ const createTripTool = tool(
 		} catch (e) {
 			log.error({ err: e }, 'create_trip failed');
 			return err(e instanceof Error ? e.message : 'create failed');
+		}
+	}
+);
+
+const upsertItineraryDaysTool = tool(
+	'upsert_itinerary_days',
+	'Add or update itinerary days on a trip, merged by day `number`: a day whose number matches an ' +
+		'existing day REPLACES it, new numbers are APPENDED in numeric order, and all other days are ' +
+		'untouched. Send 1–5 days per call and chunk long itineraries into several calls — each call ' +
+		'persists immediately, so an interrupted build keeps every completed chunk. Prefer this over ' +
+		'`replace_itinerary` both for building a new trip and for surgical day-level edits.',
+	UpsertItineraryDaysInputSchema.shape,
+	async ({ slug, days }) => {
+		try {
+			await tripsService.upsertItineraryDays(slug, days);
+			return ok(`Upserted ${days.length} day(s) on ${slug}`);
+		} catch (e) {
+			log.error({ err: e }, 'upsert_itinerary_days failed');
+			return err(e instanceof Error ? e.message : 'upsert failed');
 		}
 	}
 );
@@ -328,6 +353,7 @@ export const tripToolDefs = [
 	askUserTool,
 	updateTripFieldsTool,
 	createTripTool,
+	upsertItineraryDaysTool,
 	replaceItineraryTool,
 	replaceTransportTool,
 	replaceViralTool,

@@ -33,6 +33,9 @@ A Trip object has these top-level fields:
 Day.items are either { kind: 'activity', icon, title, description, tag? }
 or { kind: 'leg', icon, title, description, price? }.
 
+For day-level itinerary changes, prefer the \`upsert_itinerary_days\` tool ({ slug, days: [Day] },
+1–5 days per call, merged by day number) over rewriting the whole itinerary tab.
+
 Icons are short emoji (e.g. "🚌", "🍷", "⛰️").
 `;
 
@@ -91,10 +94,20 @@ plan as restaurants or viral spots, setting each item's \`source\` and \`socialU
 - Tie the restaurants tab to where each day actually goes; mix iconic spots with local gems.
 - Make \`heroPills\`/\`highlights\` specific and enticing; pick a fitting \`accent\` and the right \`flag\`/\`flags\`.
 
-## 4. Create, then review
-Call \`create_trip\` with the full Trip object. Before finishing, re-read the draft once for pacing and
-feasibility (travel times, opening days, nothing double-booked) and fix any issues. Then summarize what you
-built in 2–3 sentences and invite refinements.
+## 4. Build in stages — never one giant write
+Each tool call persists to the trip immediately, so small calls double as progress checkpoints —
+and huge single-call payloads get truncated and fail. Build in this order:
+1. Right after research, call \`create_trip\` with the SKELETON only: slug, title, flag/flags,
+   accent, eyebrow, subtitle, dateRange, tagline, heroPills, cardPills, highlights. Leave every
+   tab payload out — they default to empty shells and the trip page renders right away.
+2. Fill the itinerary with \`upsert_itinerary_days\` in chunks of AT MOST 4 days per call, in
+   day order, until every day is written.
+3. Fill each remaining tab with ONE call each: \`replace_transport\`, \`replace_viral\`,
+   \`replace_flights\`, \`replace_budget\`, \`replace_tips\`, plus \`replace_restaurants\` and
+   \`replace_accommodation\` when you have picks for them.
+4. Review: re-read the draft once for pacing and feasibility (travel times, opening days,
+   nothing double-booked) and fix issues with the same tools. Then summarize what you built in
+   2–3 sentences and invite refinements.
 ${ATTACHED_REELS_HINT}
 
 ${TRIP_SCHEMA_HINT}
@@ -113,7 +126,9 @@ Days: ${trip.itinerary.days.length}
 
 Use the tools to edit it:
 - \`update_trip_fields\` for the headline fields (title, tagline, dateRange, etc.)
-- \`replace_itinerary\` / \`replace_transport\` / \`replace_restaurants\` / \`replace_accommodation\` / etc. when restructuring a tab
+- \`upsert_itinerary_days\` to add or rewrite specific days (merged by day number, ≤5 per
+  call) — prefer it over \`replace_itinerary\` so untouched days stay exactly as they are
+- \`replace_itinerary\` / \`replace_transport\` / \`replace_restaurants\` / \`replace_accommodation\` / etc. when restructuring a whole tab
 
 When the user asks for an adjustment, make the smallest change that satisfies the
 request. Don't rewrite tabs the user didn't ask about. After editing, briefly say

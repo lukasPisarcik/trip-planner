@@ -10,6 +10,7 @@ function toRecord(doc: Doc<'chats'>) {
 		tripSlug: doc.tripSlug,
 		provider: doc.provider,
 		providerThreadId: doc.providerThreadId,
+		attachedReelIds: doc.attachedReelIds,
 		messages: doc.messages,
 		createdAt: doc.createdAt,
 		updatedAt: doc.updatedAt
@@ -165,7 +166,30 @@ export const setProviderThread = mutation({
 		assertOwner(secret);
 		const doc = await bySession(ctx, sessionId);
 		if (!doc) throw new Error(`Chat with sessionId "${sessionId}" not found`);
-		await ctx.db.patch(doc._id, { provider, providerThreadId, updatedAt: Date.now() });
+		// Only called when the owning thread changed — the hydrated-reel bookkeeping
+		// belongs to the OLD native thread, so reset it (the route re-records the ids
+		// it hydrated into the new thread right after this).
+		await ctx.db.patch(doc._id, {
+			provider,
+			providerThreadId,
+			attachedReelIds: [],
+			updatedAt: Date.now()
+		});
+	}
+});
+
+// Record reel ids whose context was hydrated into the thread's native session this
+// turn (set-union merge, so retries and overlapping attachments stay idempotent).
+// A same-provider resume consults this list to skip re-hydrating known reels.
+export const addAttachedReelIds = mutation({
+	args: { secret: v.string(), sessionId: v.string(), reelIds: v.array(v.string()) },
+	handler: async (ctx, { secret, sessionId, reelIds }) => {
+		assertOwner(secret);
+		if (reelIds.length === 0) return;
+		const doc = await bySession(ctx, sessionId);
+		if (!doc) throw new Error(`Chat with sessionId "${sessionId}" not found`);
+		const merged = [...new Set([...(doc.attachedReelIds ?? []), ...reelIds])];
+		await ctx.db.patch(doc._id, { attachedReelIds: merged, updatedAt: Date.now() });
 	}
 });
 

@@ -383,6 +383,30 @@ export const TripSchema = z.object({
 	folderId: z.string().nullable().optional()
 });
 
+// What the `create_trip` tool accepts: a SKELETON Trip — headline fields required,
+// the six core tab payloads optional. The trips service fills absent tabs with
+// schema-valid empty shells, so the trip exists (and its page renders) seconds into
+// a staged build and every later tab write is its own small Convex checkpoint.
+// (restaurants/accommodation/brainstorm are already optional on TripSchema.)
+export const TripSkeletonSchema = TripSchema.partial({
+	itinerary: true,
+	transport: true,
+	viral: true,
+	flights: true,
+	budget: true,
+	tips: true
+});
+export type TripSkeleton = z.infer<typeof TripSkeletonSchema>;
+
+// Chunked itinerary writes (`upsert_itinerary_days`) — merge by day `number`:
+// matching numbers are replaced, new numbers appended in numeric order. ≤5 days
+// per call keeps each generation small enough to never hit output caps.
+export const UpsertItineraryDaysInputSchema = z.object({
+	slug: z.string(),
+	days: z.array(DaySchema).min(1).max(5)
+});
+export type UpsertItineraryDaysInput = z.infer<typeof UpsertItineraryDaysInputSchema>;
+
 // Headline-only fields the AI co-pilot can patch with the `update_trip_fields` tool.
 export const TripHeadlinePatchSchema = TripSchema.pick({
 	title: true,
@@ -503,7 +527,7 @@ export type ReelAttachment = z.infer<typeof ReelAttachmentSchema>;
 // How many reels one build can attach. Enforced by ChatRequestSchema below AND
 // client-side (the selection store / tiles) so the user hits a friendly limit
 // instead of an opaque 400 from a rejected request body.
-export const MAX_REEL_ATTACHMENTS = 12;
+export const MAX_REEL_ATTACHMENTS = 25;
 
 // =============================================================================
 // AI chat schemas.
