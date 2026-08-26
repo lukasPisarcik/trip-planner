@@ -50,9 +50,12 @@ export async function* runCodexTurn(
 	const codexPath = PrivateEnvValue('CODEX_PATH');
 	const model = requestedModel ?? PrivateEnvValue('OPENAI_MODEL');
 	const stallMs = PrivateEnvValue('AGENT_STALL_TIMEOUT_MS');
+	const firstEventMs = PrivateEnvValue('AGENT_FIRST_EVENT_TIMEOUT_MS');
 	const maxMs = PrivateEnvValue('AGENT_MAX_TURN_MS');
 	const bridgeSecret = PrivateEnvValue('MCP_BRIDGE_SECRET');
-	const wd = createTurnWatchdog(signal, stallMs, maxMs);
+	// No onSoftMax — the Codex SDK has no graceful interrupt; the runtime cap keeps
+	// today's hard-abort semantics. The first-event grace applies the same way.
+	const wd = createTurnWatchdog(signal, { stallMs, firstEventMs, maxMs });
 
 	const mcpUrl = `${mcpBaseUrl ?? 'http://127.0.0.1:5173'}/api/mcp/trip-planner`;
 	const codex = new Codex({

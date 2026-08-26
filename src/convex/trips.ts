@@ -11,8 +11,12 @@ import {
 	TipsTabSchema,
 	RestaurantsTabSchema,
 	AccommodationTabSchema,
-	BrainstormSchema
+	BrainstormSchema,
+	UpsertItineraryDaysInputSchema
 } from '../lib/schemas/schemas';
+// Direct file import (not the helpers barrel) so the Convex bundle stays free of
+// server-only deps like the pino logger.
+import { mergeItineraryDays } from '../lib/helpers/mergeItineraryDays';
 import { assertOwner } from './lib/secret';
 
 // Per-tab schema map, mirroring `replaceTripTab` in the old service. The full
@@ -104,6 +108,24 @@ export const replaceTripTab = mutation({
 		const parsed = schema.parse(payload);
 		const doc = await requireTrip(ctx, slug);
 		await ctx.db.patch(doc._id, { data: { ...doc.data, [tab]: parsed }, updatedAt: Date.now() });
+	}
+});
+
+// Chunked itinerary writes for staged builds. The read-merge-write happens INSIDE
+// one mutation, so it's transactional (Convex OCC) — two overlapping day chunks
+// can never clobber each other the way a service-side read → replace would.
+export const upsertItineraryDays = mutation({
+	args: { secret: v.string(), slug: v.string(), days: v.any() },
+	handler: async (ctx, { secret, slug, days }) => {
+		assertOwner(secret);
+		const parsed = UpsertItineraryDaysInputSchema.parse({ slug, days });
+		const doc = await requireTrip(ctx, slug);
+		const itinerary = ItineraryTabSchema.parse(doc.data.itinerary ?? { callout: '', days: [] });
+		const merged = { ...itinerary, days: mergeItineraryDays(itinerary.days, parsed.days) };
+		await ctx.db.patch(doc._id, {
+			data: { ...doc.data, itinerary: merged },
+			updatedAt: Date.now()
+		});
 	}
 });
 

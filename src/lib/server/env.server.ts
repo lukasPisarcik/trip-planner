@@ -1,4 +1,7 @@
-import { formatZodErrors, log } from '$lib';
+// Direct submodule imports (not the `$lib` barrel) keep this server module loadable
+// under plain `bun run` scripts/tests — the barrel pulls in browser-only UI deps.
+import { formatZodErrors } from '$lib/helpers/formatZodErrors';
+import { log } from '$lib/helpers/logger';
 import { z } from 'zod';
 
 /**
@@ -38,11 +41,28 @@ const PrivateEnvSchema = z.object({
 	// searches no longer trips it. 180s covers a genuinely stalled stream with margin.
 	// Coerced from strings since env values are strings.
 	AGENT_STALL_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
-	// Hard cap on total turn runtime and the backstop for a truly hung tool (the stall
+	// Stall bound BEFORE the first SDK message of a turn. Cold-cache time-to-first-token
+	// on a 120K+ prompt plus the SDK's silent 429 retry backoff can legitimately exceed
+	// the 180s mid-stream stall; 8 minutes lets a resume survive that without loosening
+	// the mid-stream detector (which re-arms at AGENT_STALL_TIMEOUT_MS after the first
+	// message arrives).
+	AGENT_FIRST_EVENT_TIMEOUT_MS: z.coerce.number().int().positive().default(480_000),
+	// Soft cap on total turn runtime and the backstop for a truly hung tool (the stall
 	// timer is paused during tool execution). Research-heavy first builds (many web
-	// searches + several itinerary writes) legitimately run several minutes; 20 minutes
-	// gives them room to finish while still bounding a wedged subprocess.
-	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(1_200_000),
+	// searches + a dozen staged tab/day writes) legitimately run long; 30 minutes gives
+	// them room. At this point the Claude runner interrupts gracefully (the session
+	// stays resumable); a 30s backstop hard-aborts if the stream still doesn't end.
+	AGENT_MAX_TURN_MS: z.coerce.number().int().positive().default(1_800_000),
+	// Output-token cap for the spawned Claude Code CLI (CLAUDE_CODE_MAX_OUTPUT_TOKENS).
+	// The CLI's own default (32K) truncated a ~50KB tool call mid-JSON; 64K makes a
+	// legitimate large call impossible to truncate at realistic payload sizes.
+	AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(64_000),
+	// Thinking budget per response (the SDK's maxThinkingTokens). Bounds runaway
+	// thinking marathons (a 32K-token think that produced 24 characters of text)
+	// without cramping normal planning. Note: the SDK marks maxThinkingTokens
+	// deprecated and the newest models may treat it as on/off rather than a hard
+	// budget — revisit with the `thinking: { budgetTokens }` option if marathons recur.
+	AGENT_MAX_THINKING_TOKENS: z.coerce.number().int().positive().default(16_000),
 	// Convex deployment URL for server-side reads (SSR + the AI agent) and writes.
 	// Same deployment as PUBLIC_CONVEX_URL, which the browser uses for reactive reads.
 	CONVEX_URL: z.string().url(),
@@ -97,4 +117,17 @@ export function isViewerMode(): boolean {
 /** True when the shared-password site gate is armed (`SITE_PASSWORD` set). */
 export function isSiteGated(): boolean {
 	return !!PrivateEnvValue('SITE_PASSWORD');
+}
+
+/**
+ * Full environment for a spawned agent subprocess (PATH, CLI credentials, …)
+ * plus caller overrides. The single sanctioned pass-through of the raw process
+ * env outside schema validation (hard rule 2) — callers must not read
+ * individual variables from the result; declared vars go through
+ * `PrivateEnvValue` as usual.
+ */
+export function subprocessEnv(
+	overrides: Record<string, string>
+): Record<string, string | undefined> {
+	return { ...process.env, ...overrides };
 }

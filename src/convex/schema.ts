@@ -61,6 +61,10 @@ export default defineSchema({
 		// `provider` is treated as 'anthropic', whose resume key is `sessionId`.
 		provider: v.optional(v.union(v.literal('anthropic'), v.literal('openai'))),
 		providerThreadId: v.optional(v.string()),
+		// Reel ids whose extracted context has already been hydrated into this thread's
+		// provider-native session — a same-provider resume skips re-hydrating them so
+		// duplicate reel blocks never pile up. Optional → old rows unaffected.
+		attachedReelIds: v.optional(v.array(v.string())),
 		messages: v.array(v.any()),
 		createdAt: v.number(),
 		updatedAt: v.number()

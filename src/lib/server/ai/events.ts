@@ -35,6 +35,25 @@ export class AgentTimeoutError extends Error {
 	}
 }
 
+export interface TurnWatchdogOptions {
+	/** Stall bound once the stream is flowing (no SDK message for this long → abort). */
+	stallMs: number;
+	/**
+	 * Stall bound BEFORE the first SDK message of the turn. Cold-cache time-to-first-token
+	 * on a huge prompt plus the SDK's silent 429 retry backoff can exceed `stallMs`;
+	 * after the first message arrives the stall timer re-arms at `stallMs`.
+	 */
+	firstEventMs: number;
+	/** Total turn-runtime bound. */
+	maxMs: number;
+	/**
+	 * Graceful stop invoked when `maxMs` elapses (Claude: `query.interrupt()`, which
+	 * ends the turn like pressing Esc and keeps the session resumable). A 30s backstop
+	 * still hard-aborts if the stream doesn't end. Absent → hard abort as before.
+	 */
+	onSoftMax?: () => void;
+}
+
 export interface TurnWatchdog {
 	/** Aborts on client disconnect, stall, or max-runtime. Pass to the provider SDK. */
 	ctrl: AbortController;
@@ -44,7 +63,7 @@ export interface TurnWatchdog {
 	enterTool: (id: string) => void;
 	/** A tool call's result arrived — re-arm the stall timer once none are in flight. */
 	exitTool: (id: string) => void;
-	/** Clear both timers (call in a `finally`). */
+	/** Clear all timers (call in a `finally`). */
 	cleanup: () => void;
 	/** Which timeout (if any) fired — used to throw AgentTimeoutError. */
 	timedOut: () => 'stall' | 'max' | null;
@@ -65,8 +84,7 @@ export interface TurnWatchdog {
  */
 export function createTurnWatchdog(
 	signal: AbortSignal | undefined,
-	stallMs: number,
-	maxMs: number
+	opts: TurnWatchdogOptions
 ): TurnWatchdog {
 	const ctrl = new AbortController();
 	if (signal) {
@@ -76,18 +94,28 @@ export function createTurnWatchdog(
 
 	let timedOut: 'stall' | 'max' | null = null;
 	let stallTimer: ReturnType<typeof setTimeout> | undefined;
+	let backstopTimer: ReturnType<typeof setTimeout> | undefined;
+	// The runners arm the timer once before the loop (pre-first-message → the
+	// firstEventMs grace applies) and then on every message (→ stallMs).
+	let seenFirstEvent = false;
 	// Tool calls currently executing (keyed by id, so the pending→call double-signal
 	// and parallel tool calls are both correct). Non-empty → the stall timer is off.
 	const inflight = new Set<string>();
 
 	const resetStall = () => {
 		clearTimeout(stallTimer);
+		// A timeout already fired — never re-arm (messages still draining during a
+		// graceful soft-max shutdown must not let a stall abort preempt the backstop).
+		if (timedOut) return;
+		const ms = seenFirstEvent ? opts.stallMs : opts.firstEventMs;
+		seenFirstEvent = true;
 		// A tool is running → the max timer is the only bound; don't re-arm the stall.
 		if (inflight.size > 0) return;
 		stallTimer = setTimeout(() => {
+			if (timedOut) return;
 			timedOut = 'stall';
 			ctrl.abort();
-		}, stallMs);
+		}, ms);
 	};
 	const enterTool = (id: string) => {
 		inflight.add(id);
@@ -99,8 +127,22 @@ export function createTurnWatchdog(
 	};
 	const maxTimer = setTimeout(() => {
 		timedOut = 'max';
-		ctrl.abort();
-	}, maxMs);
+		// The graceful window must not be preempted by a still-armed stall timer.
+		clearTimeout(stallTimer);
+		if (opts.onSoftMax) {
+			// Graceful path: let the runner interrupt; hard-abort only if the stream
+			// still hasn't ended after the backstop. Arm the backstop FIRST so a
+			// synchronously-throwing callback can't leave the turn unbounded.
+			backstopTimer = setTimeout(() => ctrl.abort(), 30_000);
+			try {
+				opts.onSoftMax();
+			} catch {
+				ctrl.abort();
+			}
+		} else {
+			ctrl.abort();
+		}
+	}, opts.maxMs);
 
 	return {
 		ctrl,
@@ -110,6 +152,7 @@ export function createTurnWatchdog(
 		cleanup: () => {
 			clearTimeout(stallTimer);
 			clearTimeout(maxTimer);
+			clearTimeout(backstopTimer);
 		},
 		timedOut: () => timedOut
 	};

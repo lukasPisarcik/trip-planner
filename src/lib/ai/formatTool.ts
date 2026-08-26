@@ -81,6 +81,25 @@ export function formatTool(name: string, input: unknown): ToolDisplay {
 				detail: fields.length ? `Changed: ${fields.join(', ')}` : undefined
 			};
 		}
+		case 'upsert_itinerary_days': {
+			const days = asArray(args.days);
+			const numbers = days
+				.map((d) => asRecord(d).number)
+				.filter((n): n is string | number => typeof n === 'string' || typeof n === 'number')
+				.map(String)
+				// Chunks may arrive unordered — sort so the label range reads low–high.
+				.sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0));
+			const span =
+				numbers.length > 1
+					? `days ${numbers[0]}–${numbers[numbers.length - 1]}`
+					: `day ${numbers[0]}`;
+			return {
+				icon: '🗓️',
+				label: numbers.length ? `Wrote ${span}` : 'Wrote itinerary days',
+				pending: 'Writing itinerary days…',
+				detail: days.length ? plural(days.length, 'day') : undefined
+			};
+		}
 		case 'replace_itinerary': {
 			const days = count(asRecord(args.payload).days);
 			return {

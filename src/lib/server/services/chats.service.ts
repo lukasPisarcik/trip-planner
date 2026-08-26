@@ -9,6 +9,8 @@ export interface ChatRecord {
 	/** Provider that owns the thread + its native resume id (absent → legacy Claude thread). */
 	provider?: ChatProvider;
 	providerThreadId?: string | null;
+	/** Reel ids already hydrated into the provider-native thread (dedup on resume). */
+	attachedReelIds?: string[];
 	messages: ChatMessage[];
 	createdAt: number;
 	updatedAt: number;
@@ -60,6 +62,16 @@ export async function createChat(tripSlug: string | null): Promise<ChatRecord> {
 export async function appendMessages(sessionId: string, messages: ChatMessage[]): Promise<void> {
 	if (messages.length === 0) return;
 	await convex().mutation(api.chats.appendMessages, { secret: ownerSecret(), sessionId, messages });
+}
+
+/** Record reel ids hydrated into the thread's native session (set-union merge). */
+export async function addAttachedReels(sessionId: string, reelIds: string[]): Promise<void> {
+	if (reelIds.length === 0) return;
+	await convex().mutation(api.chats.addAttachedReelIds, {
+		secret: ownerSecret(),
+		sessionId,
+		reelIds
+	});
 }
 
 export async function deleteChat(sessionId: string): Promise<void> {
