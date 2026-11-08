@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { Trip, Day } from '$lib/trips';
+	import type { Trip } from '$lib/trips';
 	import Hero from './Hero.svelte';
 	import TabBar from './TabBar.svelte';
 	import TripMap, { hasGoogleMapsKey } from './TripMap.svelte';
-	import { buildAllSpots, dayFocus } from './tabs/mapLayers';
+	import MapLegend from './MapLegend.svelte';
+	import { buildAllSpots, buildDayRoutes } from './tabs/mapLayers';
 	import { tripKml } from '$lib/helpers/kml';
 	import ItineraryTab from './tabs/ItineraryTab.svelte';
 	import TransportTab from './tabs/TransportTab.svelte';
@@ -46,20 +47,39 @@
 	// ── Map backdrop ──────────────────────────────────────────────────────────
 	// One constant marker set, derived from the trip, shown on every tab.
 	const layers = $derived(buildAllSpots(trip));
+	// One persistent route layer per day with coordinates — all drawn on load.
+	const dayRoutes = $derived(buildDayRoutes(trip));
+	// Day key → palette token, so the itinerary cards' badges match their markers.
+	const colorVars = $derived<Record<string, string>>(
+		Object.fromEntries(dayRoutes.map((d) => [d.key, d.colorVar]))
+	);
 	// No coordinates anywhere (or no Google Maps API key configured) → no
 	// backdrop; fall back to the solid hero banner.
-	const hasMap = $derived(hasGoogleMapsKey && layers.spots.length > 0);
+	const hasMap = $derived(hasGoogleMapsKey && (layers.spots.length > 0 || dayRoutes.length > 0));
 
-	let tripMap = $state<ReturnType<typeof TripMap> | undefined>(undefined);
+	// Single source of truth for the focused day (null = all-days view). The
+	// map, the legend and the itinerary cards all read it and all can set it.
 	let focusedKey = $state<string | null>(null);
 
-	function focusOnDay(day: Day) {
-		focusedKey = `${day.number}-${day.date}`;
-		tripMap?.focus(dayFocus(day));
+	// A one-shot request for the itinerary to scroll a day's card into view. Set
+	// only by map/legend-initiated focus and cleared by the card once it has
+	// scrolled, so a plain tab switch back to the itinerary never jumps the page.
+	let scrollRequest = $state<string | null>(null);
+
+	/** Card-initiated focus (open/close a day card). */
+	function setFocus(key: string | null) {
+		focusedKey = key;
 	}
-	function showAll() {
-		focusedKey = null;
-		tripMap?.reset();
+	/** Map- or legend-initiated focus: also surface and scroll to the day's card. */
+	function focusFromMap(key: string | null) {
+		focusedKey = key;
+		if (key !== null) {
+			active = 'itinerary';
+			scrollRequest = key;
+		}
+	}
+	function clearScrollRequest(key: string) {
+		if (scrollRequest === key) scrollRequest = null;
 	}
 
 	// ── Scroll-collapse + expand state ──────────────────────────────────────────
@@ -224,8 +244,10 @@
 			onpointerdown={engageMapFromTouch}
 		>
 			<TripMap
-				bind:this={tripMap}
 				{layers}
+				days={dayRoutes}
+				{focusedKey}
+				onfocusday={focusFromMap}
 				height={mapHeight}
 				{interactive}
 				{fullscreen}
@@ -233,12 +255,24 @@
 				topOverlay={heroHeight}
 			/>
 			<Hero {trip} glass compact={scrolled} engaged={mapEngaged} bind:overlayHeight={heroHeight} />
+			<!-- Day legend, bottom-left above the Google logo (mb-9). Hidden while
+			     the map is collapsed and when there's only one day to tell apart. -->
+			{#if !scrolled && dayRoutes.length >= 2}
+				<MapLegend
+					class="pointer-events-auto z-3 m-3 mb-9 self-end justify-self-start"
+					days={dayRoutes}
+					{focusedKey}
+					onselect={focusFromMap}
+				/>
+			{/if}
 			<!-- Controls ride the peek: sticky below the header, like the hero. -->
 			<div
 				class="pointer-events-none sticky top-(--header-h) z-3 flex gap-2 self-start justify-self-end p-3"
 			>
 				{#if focusedKey}
-					<button type="button" class={mapBtnClass} onclick={showAll}>Show all spots</button>
+					<button type="button" class={mapBtnClass} onclick={() => setFocus(null)}
+						>Show all days</button
+					>
 				{/if}
 				<button
 					type="button"
@@ -281,7 +315,14 @@
 			{#if active === 'brainstorm'}
 				<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
 			{:else if active === 'itinerary'}
-				<ItineraryTab data={trip.itinerary} onfocusday={hasMap ? focusOnDay : undefined} />
+				<ItineraryTab
+					data={trip.itinerary}
+					focusedKey={hasMap ? focusedKey : null}
+					colorVars={hasMap ? colorVars : {}}
+					onfocuschange={hasMap ? setFocus : undefined}
+					{scrollRequest}
+					onscrolled={clearScrollRequest}
+				/>
 			{:else if active === 'transport'}
 				<TransportTab data={trip.transport} />
 			{:else if active === 'viral'}

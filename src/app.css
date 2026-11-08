@@ -97,6 +97,18 @@
 	--vc-sky: #0ea5e9;
 	--vc-violet: #8b5cf6;
 
+	/* Per-day map colours — cycled by buildDayRoutes; none is pink so the
+	   focused day (--day-focus = primary) always reads apart. */
+	--day-1: var(--sky);
+	--day-2: var(--amber);
+	--day-3: var(--violet);
+	--day-4: var(--sage);
+	--day-5: var(--fire);
+	--day-6: #0f766e; /* teal */
+	--day-7: var(--orange);
+	--day-8: #4338ca; /* indigo */
+	--day-focus: hsl(var(--primary));
+
 	--total-bg: var(--ink);
 	--total-amount: #86efac;
 	--total-info: #d6d3d1;
@@ -195,6 +207,18 @@
 	--orange: #fb923c;
 	--vc-sky: #38bdf8;
 	--vc-violet: #a78bfa;
+
+	/* Per-day map colours — the aliases follow their base tokens; only the two
+	   literal hexes need a dark variant. */
+	--day-1: var(--sky);
+	--day-2: var(--amber);
+	--day-3: var(--violet);
+	--day-4: var(--sage);
+	--day-5: var(--fire);
+	--day-6: #5eead4; /* teal */
+	--day-7: var(--orange);
+	--day-8: #a5b4fc; /* indigo */
+	--day-focus: hsl(var(--primary));
 
 	--total-bg: #0f0e0d;
 	--total-amount: #86efac;

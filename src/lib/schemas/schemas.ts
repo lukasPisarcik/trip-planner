@@ -78,13 +78,25 @@ export const CoordsSchema = z.object({
 	lng: z.number().min(-180).max(180)
 });
 
+// A hotlinkable photo for an itinerary stop, viral spot, restaurant or stay.
+// Resolved by the agent's `find_image` tool (and backfilled server-side) — see
+// images.service.ts.
+export const ImageSchema = z.object({
+	url: z.url(),
+	alt: z.string(),
+	credit: z.string().optional()
+});
+export type TripImage = z.infer<typeof ImageSchema>;
+
 export const ActivityItemSchema = z.object({
 	kind: z.literal('activity'),
 	icon: z.string(),
 	title: z.string(),
 	description: z.string(),
 	tag: z.string().optional(),
-	coords: CoordsSchema.optional()
+	coords: CoordsSchema.optional(),
+	/** Photo tile shown on the map marker — resolved via find_image / backfill. */
+	image: ImageSchema.optional()
 });
 
 export const LegItemSchema = z.object({
@@ -138,14 +150,14 @@ export const RouteGroupSchema = z.object({
 	routes: z.array(TransportRouteSchema)
 });
 
-// A hotlinkable photo for a viral spot or restaurant. Resolved by the agent's
-// `find_image` tool (and backfilled server-side) — see images.service.ts.
-export const ImageSchema = z.object({
-	url: z.url(),
-	alt: z.string(),
-	credit: z.string().optional()
+// Persisted road-route cache (localStorage 'trip-map-routes:v1', see
+// helpers/routeCache.ts): an insertion-ordered key index + [lat, lng] pairs.
+// Untrusted input — anything that doesn't parse is treated as an empty cache.
+export const RouteCacheIndexSchema = z.object({
+	keys: z.array(z.string()),
+	paths: z.record(z.string(), z.array(z.tuple([z.number(), z.number()])))
 });
-export type TripImage = z.infer<typeof ImageSchema>;
+export type RouteCacheIndex = z.infer<typeof RouteCacheIndexSchema>;
 
 // Where a place/spot was discovered. Shared by restaurants and viral spots so a
 // reel/post imported by the co-pilot keeps its platform attribution + link.

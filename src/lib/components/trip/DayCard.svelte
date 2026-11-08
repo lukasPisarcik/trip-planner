@@ -1,8 +1,29 @@
 <script lang="ts">
 	import type { Day } from '$lib/trips';
 	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
+	import { dayKey } from './tabs/mapLayers';
 
-	let { day, onfocusday }: { day: Day; onfocusday?: (day: Day) => void } = $props();
+	let {
+		day,
+		focused = false,
+		colorVar,
+		onfocuschange,
+		scrollRequested = false,
+		onscrolled
+	}: {
+		day: Day;
+		/** True while this day is the map's focused day (set from the card, the
+		 * map or the legend) — keeps the card open. */
+		focused?: boolean;
+		/** '--day-N' palette token of this day's map layer (undefined = no map). */
+		colorVar?: string;
+		/** Opening a day with stops focuses it on the map; closing the focused day unfocuses. */
+		onfocuschange?: (key: string | null) => void;
+		/** One-shot from a map/legend focus: scroll this card into view, then
+		 * report back via onscrolled so a later remount doesn't scroll again. */
+		scrollRequested?: boolean;
+		onscrolled?: (key: string) => void;
+	} = $props();
 
 	const mapLinkClass =
 		'mt-1 inline-block text-[10.5px] font-semibold text-(--ink3) no-underline hover:text-(--ink2) hover:underline';
@@ -17,9 +38,12 @@
 	}
 	// svelte-ignore state_referenced_locally
 	let open = $state(day.defaultOpen ?? false);
+	let el = $state<HTMLDivElement | undefined>(undefined);
+
+	const key = $derived(dayKey(day));
 
 	// Number the coord-bearing stops (in itinerary order) so the badges match the
-	// numbered markers the map backdrop draws when this day is focused.
+	// numbered markers the map backdrop draws for this day.
 	const numbers = $derived.by(() => {
 		const out: (number | null)[] = [];
 		let n = 0;
@@ -29,19 +53,46 @@
 
 	const hasCoords = $derived(day.items.some((i) => i.coords));
 
+	// Badge colour mirrors the day's markers: primary while focused, else the
+	// day's palette token, else the trip accent when there is no map at all.
+	const dayColor = $derived(
+		focused ? 'var(--day-focus)' : colorVar ? `var(${colorVar})` : 'var(--trip-accent, var(--sage))'
+	);
+
 	function toggle() {
 		open = !open;
-		// Opening a day with stops flies the persistent backdrop to that day's route.
-		if (open && hasCoords) onfocusday?.(day);
+		if (!hasCoords) return;
+		if (open) onfocuschange?.(key);
+		else if (focused) onfocuschange?.(null);
 	}
 
-	// Numbered badge mirroring the matching marker on the day map.
+	// A focused day's card is always open (focus can arrive from the map/legend).
+	$effect(() => {
+		if (focused) open = true;
+	});
+
+	// Map / legend focus: bring the card into view, landing just below the
+	// sticky tab bar (scroll-mt on the wrapper), then release the one-shot
+	// request so a tab switch that remounts this card doesn't scroll again.
+	$effect(() => {
+		if (!scrollRequested) return;
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		el?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+		onscrolled?.(key);
+	});
+
+	// Numbered badge mirroring the matching marker on the map.
 	const stopNumClass =
-		'mt-px inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--trip-accent,var(--sage))] text-[11px] leading-none font-bold text-white';
+		'mt-px inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-(--day) text-[11px] leading-none font-bold text-white';
 </script>
 
 <div
-	class="mb-2.5 overflow-hidden rounded-[10px] border border-(--trip-border) bg-(--white) transition-shadow duration-150 ease-[ease] hover:shadow-(--trip-shadow)"
+	bind:this={el}
+	class="mb-2.5 scroll-mt-[calc(var(--tab-bar-top,3.5rem)+56px)] overflow-hidden rounded-[10px] border bg-(--white) transition-shadow duration-150 ease-[ease] hover:shadow-(--trip-shadow) {focused
+		? 'border-(--day)'
+		: 'border-(--trip-border)'}"
+	style="--day: {dayColor}"
+	data-day-card={key}
 >
 	<button
 		type="button"

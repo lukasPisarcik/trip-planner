@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { buildAllSpots, dayFocus, boundsOf } from './mapLayers';
+import {
+	buildAllSpots,
+	buildDayRoutes,
+	chunkStops,
+	dayColorVar,
+	dayFocus,
+	dayKey,
+	boundsOf,
+	routeCacheKey,
+	DAY_PALETTE_SIZE
+} from './mapLayers';
 import { RestaurantSchema, ViralSpotSchema, CoordsSchema } from '$lib/schemas/schemas';
 import type { Day, Trip } from '$lib/trips';
 
@@ -260,6 +270,143 @@ describe('dayFocus', () => {
 describe('boundsOf', () => {
 	test('returns null for an empty set', () => {
 		expect(boundsOf([])).toBeNull();
+	});
+});
+
+describe('buildDayRoutes', () => {
+	const stop = (
+		title: string,
+		lat: number,
+		lng: number,
+		imageUrl?: string
+	): Day['items'][number] => ({
+		kind: 'activity',
+		icon: '📍',
+		title,
+		description: '',
+		coords: { lat, lng },
+		...(imageUrl ? { image: { url: imageUrl, alt: title } } : {})
+	});
+	const day = (number: number, items: Day['items']): Day => ({
+		number,
+		date: `Jul ${number}`,
+		flag: '🇩🇪',
+		title: `Day ${number}`,
+		subtitle: '',
+		items
+	});
+
+	test('skips coord-less days and numbers colours over the drawn days only', () => {
+		const trip = makeTrip({
+			itinerary: {
+				callout: '',
+				days: [
+					day(1, [stop('A', 52.5, 13.3)]),
+					// No coords at all → not drawn, and it must not consume a colour.
+					day(2, [{ kind: 'activity', icon: '🎨', title: 'Museum', description: '' }]),
+					day(3, [stop('B', 52.6, 13.4), stop('C', 52.7, 13.5)])
+				]
+			}
+		});
+		const routes = buildDayRoutes(trip);
+		expect(routes.map((r) => r.key)).toEqual(['1-Jul 1', '3-Jul 3']);
+		expect(routes.map((r) => r.colorVar)).toEqual(['--day-1', '--day-2']);
+		expect(routes[1].number).toBe(3);
+		expect(routes[1].title).toBe('Day 3');
+		expect(routes[1].bounds).toEqual([
+			[52.6, 13.4],
+			[52.7, 13.5]
+		]);
+	});
+
+	test('the palette cycles after 8 drawn days', () => {
+		const days = Array.from({ length: 10 }, (_, i) => day(i + 1, [stop('S', 50 + i, 10)]));
+		const routes = buildDayRoutes(makeTrip({ itinerary: { callout: '', days } }));
+		expect(routes).toHaveLength(10);
+		expect(routes[7].colorVar).toBe('--day-8');
+		expect(routes[8].colorVar).toBe('--day-1');
+		expect(routes[9].colorVar).toBe('--day-2');
+	});
+
+	test('segments split at coord-less legs and carry the stop image', () => {
+		const trip = makeTrip({
+			itinerary: {
+				callout: '',
+				days: [
+					day(1, [
+						stop('A', 52.5, 13.3, 'https://upload.wikimedia.org/a.jpg'),
+						{ kind: 'leg', icon: '🚌', title: 'Bus', description: '' },
+						stop('B', 52.6, 13.4)
+					])
+				]
+			}
+		});
+		const [route] = buildDayRoutes(trip);
+		expect(route.segments).toHaveLength(2);
+		expect(route.segments[0][0]).toMatchObject({
+			n: 1,
+			title: 'A',
+			imageUrl: 'https://upload.wikimedia.org/a.jpg'
+		});
+		expect(route.segments[1][0]).toMatchObject({ n: 2, title: 'B' });
+		expect(route.segments[1][0].imageUrl).toBeUndefined();
+	});
+
+	test('an empty trip draws nothing', () => {
+		expect(buildDayRoutes(makeTrip({}))).toEqual([]);
+	});
+
+	test('dayKey / dayColorVar match the card key and the token names', () => {
+		expect(dayKey({ number: 3, date: 'Jul 10' })).toBe('3-Jul 10');
+		expect(dayColorVar(0)).toBe('--day-1');
+		expect(dayColorVar(DAY_PALETTE_SIZE - 1)).toBe(`--day-${DAY_PALETTE_SIZE}`);
+		expect(dayColorVar(DAY_PALETTE_SIZE)).toBe('--day-1');
+	});
+});
+
+describe('chunkStops', () => {
+	const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+	test('a segment within the limit is a single chunk', () => {
+		expect(chunkStops(seq(12))).toEqual([seq(12)]);
+		expect(chunkStops(seq(2))).toEqual([seq(2)]);
+	});
+
+	test('longer segments overlap by one stop and never exceed 12', () => {
+		const chunks = chunkStops(seq(23));
+		expect(chunks).toHaveLength(2);
+		expect(chunks[0]).toEqual(seq(12)); // 0..11
+		expect(chunks[1]).toEqual(seq(23).slice(11)); // 11..22
+		for (const c of chunks) expect(c.length).toBeLessThanOrEqual(12);
+	});
+
+	test('the trailing chunk always has at least two stops', () => {
+		const chunks = chunkStops(seq(13));
+		expect(chunks).toHaveLength(2);
+		expect(chunks[1]).toEqual([11, 12]);
+		const chunks2 = chunkStops(seq(30));
+		expect(chunks2.map((c) => c.length)).toEqual([12, 12, 8]);
+		expect(chunks2[2][0]).toBe(22);
+	});
+});
+
+describe('routeCacheKey', () => {
+	const pts = [
+		{ lat: 52.520008, lng: 13.404954 },
+		{ lat: 48.856614, lng: 2.352222 }
+	];
+
+	test('is stable across float noise below 1e-5 and prefixed with the version', () => {
+		const noisy = pts.map((p) => ({ lat: p.lat + 1e-7, lng: p.lng - 2e-7 }));
+		expect(routeCacheKey(pts)).toBe(routeCacheKey(noisy));
+		expect(routeCacheKey(pts).startsWith('v1:2:')).toBe(true);
+	});
+
+	test('differs when a stop moves, is added, or the order flips', () => {
+		const base = routeCacheKey(pts);
+		expect(routeCacheKey([pts[0], { lat: 48.86, lng: 2.35 }])).not.toBe(base);
+		expect(routeCacheKey([...pts, { lat: 50, lng: 10 }])).not.toBe(base);
+		expect(routeCacheKey([pts[1], pts[0]])).not.toBe(base);
 	});
 });
 
