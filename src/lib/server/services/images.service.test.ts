@@ -207,8 +207,9 @@ describe('backfillItineraryImages', () => {
 				number: 1,
 				date: 'Dec 20',
 				flag: '🇯🇵',
-				title: 'Tokyo',
+				title: 'Arrival & easy first night',
 				subtitle: 'Shrines and skylines',
+				countryHeader: { flag: '🇯🇵', name: 'Japan', nights: '3 nights' },
 				items: [
 					{
 						kind: 'activity' as const,
@@ -261,9 +262,9 @@ describe('backfillItineraryImages', () => {
 		const queries: string[] = [];
 		stubFetch((query) => {
 			queries.push(query);
-			// "Meiji Shrine, Tokyo" → page "Meiji Shrine" (matches);
+			// "Meiji Shrine, Japan" → page "Meiji Shrine" (matches);
 			// "Breakfast, …" would hit the "Breakfast" article — it must never be asked;
-			// "Lunch at Ichiran, Tokyo" → page "Tokyo" (no shared token → guard rejects).
+			// "Ichiran, Japan" / "Lunch at Ichiran, Japan" → page "Tokyo" (guard rejects).
 			if (query.startsWith('Meiji')) return { body: wikiResponse('Meiji Shrine', WIKI_URL) };
 			if (query.startsWith('Breakfast')) return { body: wikiResponse('Breakfast', WIKI_URL) };
 			return { body: wikiResponse('Tokyo', WIKI_URL) };
@@ -284,9 +285,73 @@ describe('backfillItineraryImages', () => {
 			'https://upload.wikimedia.org/existing.jpg'
 		);
 
-		// Only coord-bearing, imageless, non-generic activities were looked up —
-		// the query carries the day title for disambiguation.
-		expect(queries.sort()).toEqual(['Lunch at Ichiran, Tokyo', 'Meiji Shrine, Tokyo']);
+		// Only coord-bearing, imageless, non-generic activities were looked up. The
+		// hint is the country header, never the (thematic) day title; a descriptive
+		// title tries its place phrase first, then the full title.
+		expect(queries.sort()).toEqual([
+			'Ichiran, Japan',
+			'Lunch at Ichiran, Japan',
+			'Meiji Shrine, Japan'
+		]);
+	});
+
+	test('descriptive titles: the place phrase wins and a page matching only the filler is rejected', async () => {
+		const queries: string[] = [];
+		stubFetch((query) => {
+			queries.push(query);
+			// The phrase query finds the venue; a bare "Sunset" page would share a
+			// token with the full title but not with the place phrase.
+			if (query.startsWith('Holzmarkt')) return { body: wikiResponse('Holzmarkt', WIKI_URL) };
+			if (query.startsWith('Brandenburg')) return { body: wikiResponse('Sunset', WIKI_URL) };
+			return { body: wikiResponse('Sunset', WIKI_URL) };
+		});
+		const out = (await backfillItineraryImages({
+			callout: '',
+			days: [
+				{
+					number: 1,
+					date: 'Jul 8',
+					flag: '🇩🇪',
+					title: 'Arrival & easy first night',
+					subtitle: '',
+					countryHeader: { flag: '🇩🇪', name: 'Germany', nights: '4 nights' },
+					items: [
+						{
+							kind: 'activity',
+							icon: '🌇',
+							title: 'Sunset drinks at Holzmarkt 25',
+							description: '',
+							coords: { lat: 52.51, lng: 13.42 }
+						},
+						{
+							kind: 'activity',
+							icon: '🚶',
+							title: 'Walk to Brandenburg Gate',
+							description: 'every lookup returns the irrelevant "Sunset" page',
+							coords: { lat: 52.516, lng: 13.377 }
+						},
+						{
+							kind: 'activity',
+							icon: '💻',
+							title: 'Conference — Day 2',
+							description: 'tail "Day 2" is generic → phrase ignored; whole title still searched',
+							coords: { lat: 52.5, lng: 13.4 }
+						}
+					]
+				}
+			]
+		})) as ItineraryTab;
+		const [holzmarkt, gate, conference] = out.days[0].items;
+		expect(holzmarkt.kind === 'activity' && holzmarkt.image?.alt).toBe(
+			'Sunset drinks at Holzmarkt 25'
+		);
+		expect(gate.kind === 'activity' && gate.image).toBeFalsy();
+		expect(conference.kind === 'activity' && conference.image).toBeFalsy();
+		expect(queries).toContain('Holzmarkt 25, Germany');
+		expect(queries).toContain('Brandenburg Gate, Germany');
+		expect(queries).toContain('Walk to Brandenburg Gate, Germany');
+		// The phrase hit short-circuits: the full-title query is never sent.
+		expect(queries).not.toContain('Sunset drinks at Holzmarkt 25, Germany');
 	});
 
 	test('survives a thrown fetch and leaves stops imageless', async () => {

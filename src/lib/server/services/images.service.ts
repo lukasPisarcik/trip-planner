@@ -267,22 +267,53 @@ const GENERIC_STOP_WORDS = new Set([
 	'our'
 ]);
 
-/** True when a stop title carries no place-like word at all. */
-function isGenericStop(title: string): boolean {
-	const words = title
+const words = (s: string) =>
+	s
 		.toLowerCase()
 		.replace(/[^a-z0-9\s]/g, ' ')
 		.split(/\s+/)
 		.filter(Boolean);
-	return words.length === 0 || words.every((w) => GENERIC_STOP_WORDS.has(w));
+
+/** True when a stop title carries no place-like word at all. */
+function isGenericStop(title: string): boolean {
+	const w = words(title);
+	return w.length === 0 || w.every((x) => GENERIC_STOP_WORDS.has(x));
+}
+
+// Itinerary titles are often descriptive ("Sunset drinks at Holzmarkt 25",
+// "Walk to Brandenburg Gate", "Kutná Hora: Sedlec Ossuary"); the place is what
+// follows the last of these delimiters.
+const PLACE_DELIMITER = /\s(?:at|@|in|on|to|near|around)\s|:\s|\s[—–-]\s/i;
+
+/** The place-bearing tail of a descriptive stop title, or null when the title
+ * has no delimiter (or the tail is generic). */
+function placePhrase(title: string): string | null {
+	const parts = title.split(PLACE_DELIMITER);
+	if (parts.length < 2) return null;
+	const tail = parts[parts.length - 1].trim();
+	return tail.length >= 3 && !isGenericStop(tail) ? tail : null;
+}
+
+/** Relevance guard for itinerary stops: the page title must share a
+ * non-generic token with the stop's place text (the extracted phrase when
+ * there is one), so "Sunset" can't match "Sunset drinks at Holzmarkt 25". */
+function pageMatchesStop(pageTitle: string, placeText: string): boolean {
+	const wanted = new Set(
+		words(placeText).filter((w) => w.length >= 3 && !GENERIC_STOP_WORDS.has(w))
+	);
+	return words(pageTitle).some((w) => wanted.has(w));
 }
 
 /**
  * Backfill missing `image` on itinerary stops: only coord-bearing activities
- * (they become photo tiles on the trip map), skipping generic non-place stops
- * and applying the same relevance guard as restaurants so a stop never gets an
- * arbitrary Wikipedia photo. Legs and coord-less activities are untouched.
- * Input/output are the raw itinerary-tab payload (`{ callout, days }`).
+ * (they become photo tiles on the trip map), skipping generic non-place stops.
+ * The search uses the day's country (from the itinerary's country headers,
+ * carried forward) as the location hint — never the day title, which is a
+ * theme ("Arrival & easy first night") that drags the search off target — and
+ * tries the extracted place phrase before the full title. Each hit must pass
+ * the relevance guard so a stop never gets an arbitrary Wikipedia photo. Legs
+ * and coord-less activities are untouched. Input/output are the raw
+ * itinerary-tab payload (`{ callout, days }`).
  */
 export async function backfillItineraryImages(payload: unknown): Promise<unknown> {
 	const parsed = ItineraryTabSchema.safeParse(payload);
@@ -290,18 +321,28 @@ export async function backfillItineraryImages(payload: unknown): Promise<unknown
 	const tab = parsed.data;
 
 	type Activity = Extract<(typeof tab.days)[number]['items'][number], { kind: 'activity' }>;
-	const missing: { item: Activity; day: string }[] = [];
+	const missing: { item: Activity; hint: string }[] = [];
+	let country = '';
 	for (const day of tab.days) {
+		if (day.countryHeader?.name) country = day.countryHeader.name;
 		for (const item of day.items) {
 			if (item.kind === 'activity' && item.coords && !item.image && !isGenericStop(item.title)) {
-				missing.push({ item, day: day.title });
+				missing.push({ item, hint: country ? `, ${country}` : '' });
 			}
 		}
 	}
-	await pooledMap(missing, BACKFILL_CONCURRENCY, async ({ item, day }) => {
-		const hit = await lookupWikimedia(`${item.title}, ${day}`);
-		if (hit && titleMatchesPlace(hit.pageTitle, item.title)) {
-			item.image = { ...hit.image, alt: item.title };
+	await pooledMap(missing, BACKFILL_CONCURRENCY, async ({ item, hint }) => {
+		const phrase = placePhrase(item.title);
+		const placeText = phrase ?? item.title;
+		const queries = phrase
+			? [`${phrase}${hint}`, `${item.title}${hint}`]
+			: [`${item.title}${hint}`];
+		for (const query of queries) {
+			const hit = await lookupWikimedia(query);
+			if (hit && pageMatchesStop(hit.pageTitle, placeText)) {
+				item.image = { ...hit.image, alt: item.title };
+				return;
+			}
 		}
 	});
 	return tab;
