@@ -84,17 +84,63 @@
 		'flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white ' +
 		'bg-(--pin) text-[10px] leading-none shadow-[0_1px_4px_rgba(0,0,0,0.4)] ' +
 		'transition-opacity duration-200 motion-reduce:transition-none';
-	// Photo tile: 44px rounded square in the day colour; the img (if any) covers it.
+	// Photo tile: rounded square in the day colour; the img (if any) covers it.
+	// Its size (and the badge's) comes from CSS variables set on the map
+	// container per zoom tier (see applyZoomTier), so tiles shrink as you zoom
+	// out instead of piling into an unreadable cluster.
 	const TILE_CLASS =
-		'relative flex h-11 w-11 items-center justify-center rounded-[12px] border-2 border-white ' +
-		'bg-(--day) text-[20px] leading-none shadow-[0_2px_8px_rgba(0,0,0,0.35)] ' +
+		'relative flex size-(--tile) items-center justify-center rounded-[27%] border-2 border-white ' +
+		'bg-(--day) text-(length:--tile-font) leading-none shadow-[0_2px_8px_rgba(0,0,0,0.35)] ' +
 		'transition-opacity duration-200 motion-reduce:transition-none';
-	const TILE_IMG_CLASS = 'h-full w-full rounded-[10px] object-cover';
+	const TILE_IMG_CLASS = 'h-full w-full rounded-[22%] object-cover';
 	// Order badge riding the tile's top-right corner.
 	const BADGE_CLASS =
-		'absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full ' +
-		'border-2 border-white bg-(--day) px-1 text-[11px] leading-none font-bold text-white ' +
-		'shadow-[0_1px_3px_rgba(0,0,0,0.35)]';
+		'absolute -top-1.5 -right-1.5 flex h-(--badge) min-w-(--badge) items-center justify-center ' +
+		'rounded-full border-2 border-white bg-(--day) px-1 text-(length:--badge-font) leading-none ' +
+		'font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.35)]';
+
+	/** Marker/line sizing per zoom level — city-level zoom gets the full 44px
+	 * photo tile and a 4px stroke; zoomed-out views shrink both. */
+	interface ZoomTier {
+		tile: number;
+		tileFont: number;
+		badge: number;
+		badgeFont: number;
+		stroke: number;
+		casing: number;
+	}
+	const TIER_NEAR: ZoomTier = {
+		tile: 44,
+		tileFont: 20,
+		badge: 20,
+		badgeFont: 11,
+		stroke: 4,
+		casing: 7
+	};
+	const TIER_MID: ZoomTier = {
+		tile: 30,
+		tileFont: 14,
+		badge: 16,
+		badgeFont: 10,
+		stroke: 3,
+		casing: 5
+	};
+	const TIER_FAR: ZoomTier = {
+		tile: 20,
+		tileFont: 10,
+		badge: 14,
+		badgeFont: 9,
+		stroke: 2,
+		casing: 4
+	};
+	function zoomTier(zoom: number): ZoomTier {
+		if (zoom >= 14) return TIER_NEAR;
+		if (zoom >= 12) return TIER_MID;
+		return TIER_FAR;
+	}
+	// Svelte state so the variables ride the container's `style` binding below:
+	// an imperative style.setProperty would be wiped whenever `height` changes.
+	let tier = $state.raw<ZoomTier>(TIER_NEAR);
 	const DIM_CLASS = 'opacity-25'; // = DIM, as a Tailwind utility for marker DOM
 
 	interface SpotMarker {
@@ -385,13 +431,14 @@
 		if (!map) return;
 		const mult = dim ? DIM : 1;
 		seg.fallback.setMap(null);
+		const t = untrack(() => tier); // drawDays runs inside $effects — don't subscribe
 		seg.casing = new google.maps.Polyline({
 			map,
 			path,
 			clickable: true,
 			strokeColor: '#ffffff',
 			strokeOpacity: 0.55 * mult,
-			strokeWeight: 8,
+			strokeWeight: t.casing,
 			zIndex: z
 		});
 		seg.stroke = new google.maps.Polyline({
@@ -400,9 +447,24 @@
 			clickable: true,
 			strokeColor: color,
 			strokeOpacity: 0.95 * mult,
-			strokeWeight: 5,
+			strokeWeight: t.stroke,
 			zIndex: z + 1
 		});
+	}
+
+	/** Re-size tiles (via CSS variables the marker DOM inherits from the map
+	 * container) and line weights for the current zoom. */
+	function applyZoomTier() {
+		if (!map || !mapEl) return;
+		const next = zoomTier(map.getZoom() ?? 14);
+		if (next === untrack(() => tier)) return;
+		tier = next;
+		for (const layer of dayLayers) {
+			for (const s of layer.segments) {
+				s.casing?.setOptions({ strokeWeight: tier.casing });
+				s.stroke?.setOptions({ strokeWeight: tier.stroke });
+			}
+		}
 	}
 
 	function clearDays() {
@@ -592,6 +654,9 @@
 			info?.close();
 			if (focusedKey !== null) onfocusday?.(null);
 		});
+		// Tiles and strokes scale with zoom (the fit below fires zoom_changed too).
+		applyZoomTier();
+		map.addListener('zoom_changed', applyZoomTier);
 		info = new InfoWindowCtor();
 		drawSpots();
 		drawDays();
@@ -713,7 +778,7 @@
 	class="trip-map relative isolate w-full overflow-hidden bg-(--cream) {className}"
 	class:pointer-events-auto={interactive}
 	class:pointer-events-none={!interactive}
-	style="height: {height}px"
+	style="height: {height}px; --tile: {tier.tile}px; --tile-font: {tier.tileFont}px; --badge: {tier.badge}px; --badge-font: {tier.badgeFont}px"
 	bind:this={mapEl}
 	role="region"
 	aria-label="Map of the trip's spots"
