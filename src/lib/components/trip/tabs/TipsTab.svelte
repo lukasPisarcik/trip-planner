@@ -9,9 +9,9 @@
 	{data.sectionLabel}
 </div>
 
-<div class="grid grid-cols-[1fr_1fr] gap-2.5 max-[580px]:grid-cols-[1fr]">
+<div class="grid grid-cols-1 gap-2.5 @xl:grid-cols-2">
 	{#each data.cards as card, i (i)}
-		<div class="rounded-[10px] border border-(--trip-border) bg-(--white) p-3.5">
+		<div class="rounded-[10px] border border-(--trip-border) bg-(--card-fill) p-3.5">
 			<h4 class="mb-[5px] text-[12.5px] font-semibold text-(--ink)">{card.icon} {card.title}</h4>
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			<p class="tip-body text-xs leading-[1.55] text-(--ink2)">{@html card.body}</p>

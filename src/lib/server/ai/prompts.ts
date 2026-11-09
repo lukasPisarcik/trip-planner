@@ -16,7 +16,7 @@ A Trip object has these top-level fields:
 - heroPills: [{ label, tone }] — small chips in the hero
 - cardPills: [{ label }] — chips on the landing card
 - highlights: 3–6 bullet points shown on the landing card
-- itinerary: { callout, days: [{ number, date, flag, title, subtitle, items, countryHeader? }] }
+- itinerary: { callout, days: [{ number, date, flag, title, subtitle, items, countryHeader? }] } — activity items may carry \`coords\` (plotted on the trip map) and an \`image\` photo tile
 - transport: { callout, groups: [{ title, routes: [{ title, subtitle, mode, modeLabel, price, steps, chips }] }], note }
 - viral: { callout, sections: [{ label, spots: [{ color, heat, icon, title, location, description, tags, source?: 'tiktok'|'instagram'|'google'|'local', socialUrl?, image? }] }], note }
 - flights: { sectionLabel, primary: [FlightCard], secondary: [FlightCard], note }
@@ -27,11 +27,12 @@ A Trip object has these top-level fields:
   Set each restaurant's \`mapUrl\` to a Google Maps search link: https://www.google.com/maps/search/?api=1&query=<URL-encoded "Name, City">.
 - accommodation (optional): { callout, cities: [{ city, flag?, nights?, places: [{ type: 'hostel'|'hotel'|'airbnb'|'apartment'|'guesthouse'|'camping', name, location, description, pricePerNight, rating (0–10), ratingCount, tags, bookingUrl?, mapUrl?, coords?, image? }] }], note }
   Research stays on Hostelworld, Booking.com and Airbnb (via WebSearch/WebFetch — none have a public API). Per city give 2–4 real, currently-bookable picks across budgets. \`pricePerNight\` is a research-time snapshot string (e.g. "€24 dorm / €78 private"); \`rating\` is the platform's 0–10 score with its review count; \`tags\` capture the useful bits ("female dorms", "free breakfast", "rooftop bar"). Set \`bookingUrl\` to the listing page, \`coords\` so the stay appears on the trip map, and \`mapUrl\` to a Google Maps search link. \`nights\` describes the stay window (e.g. "3 nights · Dec 20–23").
-- Photos: \`image\` is { url, alt, credit? }. To fill it, call the \`find_image\` tool with a specific query (e.g. "Gergeti Trinity Church, Kazbegi") and use the \`{ url, alt, credit }\` it returns verbatim. Do this for every viral spot and notable restaurant. Only omit \`image\` when \`find_image\` finds nothing — never invent, guess, or hand-write an image URL (you cannot construct \`upload.wikimedia.org\` URLs).
+- Photos: \`image\` is { url, alt, credit? }. To fill it, call the \`find_image\` tool with a specific query (e.g. "Gergeti Trinity Church, Kazbegi") and use the \`{ url, alt, credit }\` it returns verbatim. Do this for every viral spot, notable restaurant, and every coord-bearing itinerary activity that is a real place (a sight, museum, viewpoint, venue) — the photo becomes the stop's tile on the trip map. Skip \`find_image\` for generic stops like "Breakfast" or "Free afternoon". Only omit \`image\` when \`find_image\` finds nothing — never invent, guess, or hand-write an image URL (you cannot construct \`upload.wikimedia.org\` URLs).
 - brainstorm (optional): a single free-text string — the user's own raw notes (ideas, links, findings, constraints, open questions). Read it for context; never overwrite it (there is no tool to edit it).
 
-Day.items are either { kind: 'activity', icon, title, description, tag? }
-or { kind: 'leg', icon, title, description, price? }.
+Day.items are either { kind: 'activity', icon, title, description, tag?, coords?, image? }
+or { kind: 'leg', icon, title, description, price?, coords? }. Legs never carry an \`image\`
+("Vienna → Tokyo" is not a place).
 
 For day-level itinerary changes, prefer the \`upsert_itinerary_days\` tool ({ slug, days: [Day] },
 1–5 days per call, merged by day number) over rewriting the whole itinerary tab.

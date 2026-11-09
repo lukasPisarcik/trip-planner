@@ -2,8 +2,7 @@
 	import type { TransportRoute } from '$lib/trips';
 
 	let { route }: { route: TransportRoute } = $props();
-	// svelte-ignore state_referenced_locally
-	let open = $state(route.defaultOpen ?? false);
+	let open = $state(false);
 
 	const modeTone: Record<TransportRoute['mode'], string> = {
 		bus: 'border-(--sage-md) bg-(--sage-lt) text-(--sage)',
@@ -19,7 +18,7 @@
 	};
 </script>
 
-<div class="mb-2 overflow-hidden rounded-[10px] border border-(--trip-border) bg-(--white)">
+<div class="mb-2 overflow-hidden rounded-[10px] border border-(--trip-border) bg-(--card-fill)">
 	<button
 		type="button"
 		class="flex w-full cursor-pointer items-center gap-2.5 px-4 py-3 text-left select-none"

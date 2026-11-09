@@ -47,12 +47,14 @@
 </script>
 
 <div
-	class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--white) p-4 {categoryTone[
+	class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--card-fill) p-4 {categoryTone[
 		place.category
 	]}"
 >
 	{#if place.image}
-		<div class="relative -mx-4 -mt-4 mb-3 aspect-video overflow-hidden bg-(--cream)">
+		<div
+			class="relative -mx-4 -mt-4 mb-3 aspect-[2.5/1] overflow-hidden bg-(--cream) @xl:aspect-video"
+		>
 			<img
 				class="block h-full w-full object-cover"
 				src={place.image.url}

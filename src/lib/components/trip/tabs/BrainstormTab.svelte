@@ -69,7 +69,7 @@
 	</div>
 
 	<textarea
-		class="min-h-[60vh] w-full resize-y rounded-xl border border-(--trip-border) bg-(--white) px-[18px] py-4 text-sm leading-[1.7] text-(--ink) placeholder:text-(--ink3) focus:border-[var(--trip-accent,var(--sage))] focus:shadow-[0_0_0_3px_var(--trip-accent-lt,var(--sage-lt))] focus:outline-none"
+		class="min-h-[60vh] w-full resize-y rounded-xl border border-(--trip-border) bg-(--card-fill) px-[18px] py-4 text-sm leading-[1.7] text-(--ink) placeholder:text-(--ink3) focus:border-[var(--trip-accent,var(--sage))] focus:shadow-[0_0_0_3px_var(--trip-accent-lt,var(--sage-lt))] focus:outline-none"
 		bind:value={draft}
 		oninput={onInput}
 		onblur={onBlur}

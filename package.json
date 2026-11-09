@@ -18,7 +18,8 @@
 		"changeset:add": "bunx changeset add",
 		"changeset:version": "bunx changeset version",
 		"changeset:publish": "bunx changeset publish",
-		"check:changeset": "bunx changeset status --since=origin/main"
+		"check:changeset": "bunx changeset status --since=origin/main",
+		"backfill:images": "bun --preload ./scripts/sveltekit-stubs.ts scripts/backfill-itinerary-images.ts"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.141",

@@ -6,6 +6,7 @@ import { convex, ownerSecret } from '../data/convex';
 import { isViewerMode } from '../env.server';
 import {
 	backfillTripImages,
+	backfillItineraryImages,
 	backfillViralImages,
 	backfillRestaurantImages,
 	backfillAccommodationImages
@@ -65,13 +66,16 @@ export async function createTrip(input: unknown): Promise<string> {
 
 export async function upsertItineraryDays(slug: string, days: Day[]): Promise<void> {
 	assertWritable();
+	// Backfill stop photos the agent left empty (best-effort) — the backfill
+	// works on an itinerary-tab shape, so wrap the bare day list.
+	const filled = (await backfillItineraryImages({ callout: '', days })) as { days: Day[] };
 	// The day-number merge happens inside the Convex mutation (one transaction),
 	// so overlapping chunk writes from parallel tool calls can't clobber each
 	// other. The merge logic itself lives in $lib/helpers/mergeItineraryDays.
 	await convex().mutation(api.trips.upsertItineraryDays, {
 		secret: ownerSecret(),
 		slug,
-		days
+		days: filled.days
 	});
 }
 
@@ -101,7 +105,8 @@ export async function replaceTripTab(
 	assertWritable();
 	// Backfill any images the agent left empty before persisting (best-effort).
 	let body = payload;
-	if (tab === 'viral') body = await backfillViralImages(payload);
+	if (tab === 'itinerary') body = await backfillItineraryImages(payload);
+	else if (tab === 'viral') body = await backfillViralImages(payload);
 	else if (tab === 'restaurants') body = await backfillRestaurantImages(payload);
 	else if (tab === 'accommodation') body = await backfillAccommodationImages(payload);
 	await convex().mutation(api.trips.replaceTripTab, {

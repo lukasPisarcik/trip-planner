@@ -233,10 +233,12 @@
 {/if}
 
 <aside
-	class="fixed top-14 right-0 bottom-0 z-30 flex w-[380px] max-w-[100vw] translate-x-full flex-col border-l bg-background shadow-xl transition-transform duration-200 ease-out data-[open=true]:translate-x-0"
+	class="glass fixed top-[calc(3.5rem+12px)] right-3 bottom-6 z-30 flex w-[380px] max-w-[calc(100vw-24px)] translate-x-[calc(100%+12px)] flex-col overflow-hidden rounded-[18px] transition-transform duration-200 ease-out data-[open=true]:translate-x-0"
 	data-open={aiPanelStore.open}
 >
-	<header class="flex min-h-12 items-center justify-between border-b py-2.5 pr-3 pl-4">
+	<header
+		class="flex min-h-12 items-center justify-between border-b border-(--glass-stroke) py-2.5 pr-3 pl-4"
+	>
 		<div class="flex items-center gap-2 text-[13px] font-semibold tracking-[0.02em]">
 			{#if view === 'chat'}
 				<button
@@ -310,7 +312,7 @@
 		{#if view === 'list'}
 			<div class="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3">
 				<button
-					class="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] border bg-background text-[13.5px] font-medium shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+					class="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-(--glass-stroke) text-[13.5px] font-medium transition-colors hover:border-primary/40 hover:bg-muted/40"
 					onclick={startNewChat}
 				>
 					<Plus class="size-4" />
@@ -360,8 +362,8 @@
 		<!-- Floating frosted bar mirroring the agent workspace: messages scroll
 		     beneath it inside the panel. -->
 		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
-			<div class="h-6 bg-gradient-to-t from-background/70 to-transparent"></div>
-			<div class="pointer-events-auto bg-background/70 backdrop-blur-md">
+			<div class="h-6 bg-gradient-to-t from-(--glass-bg) to-transparent"></div>
+			<div class="pointer-events-auto bg-(--glass-bg)">
 				{#if items.length > 0}
 					<div class="flex justify-end px-4 pt-2">
 						<ChatRunTimer {items} elapsed={session.elapsedMs} streaming={session.streaming} />

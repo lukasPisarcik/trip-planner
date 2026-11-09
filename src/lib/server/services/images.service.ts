@@ -2,6 +2,7 @@ import {
 	ViralTabSchema,
 	RestaurantsTabSchema,
 	AccommodationTabSchema,
+	ItineraryTabSchema,
 	TripSchema,
 	type TripImage
 } from '$lib/schemas';
@@ -200,12 +201,160 @@ export async function backfillAccommodationImages(payload: unknown): Promise<unk
 	return tab;
 }
 
-/** Backfill viral + restaurant + accommodation images on a whole trip object (for `create_trip`). */
+// Words that make up non-place itinerary stops ("Breakfast", "Free afternoon",
+// "Hotel check-in"). Wikipedia has an article for most of them, so the title
+// guard alone would hand such a stop a stock photo; a stop made only of these
+// words is never looked up. Any other word ("Lunch at Narisawa") qualifies.
+const GENERIC_STOP_WORDS = new Set([
+	'breakfast',
+	'brunch',
+	'lunch',
+	'dinner',
+	'coffee',
+	'snack',
+	'drinks',
+	'meal',
+	'food',
+	'rest',
+	'relax',
+	'nap',
+	'sleep',
+	'free',
+	'morning',
+	'afternoon',
+	'evening',
+	'night',
+	'day',
+	'time',
+	'hotel',
+	'hostel',
+	'check',
+	'checkin',
+	'checkout',
+	'arrival',
+	'arrive',
+	'departure',
+	'depart',
+	'transfer',
+	'transit',
+	'flight',
+	'train',
+	'bus',
+	'taxi',
+	'drive',
+	'walk',
+	'explore',
+	'wander',
+	'stroll',
+	'shopping',
+	'souvenirs',
+	'pack',
+	'unpack',
+	'airport',
+	'station',
+	'return',
+	'back',
+	'around',
+	'the',
+	'and',
+	'at',
+	'in',
+	'to',
+	'of',
+	'a',
+	'an',
+	'your',
+	'our'
+]);
+
+const words = (s: string) =>
+	s
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, ' ')
+		.split(/\s+/)
+		.filter(Boolean);
+
+/** True when a stop title carries no place-like word at all. */
+function isGenericStop(title: string): boolean {
+	const w = words(title);
+	return w.length === 0 || w.every((x) => GENERIC_STOP_WORDS.has(x));
+}
+
+// Itinerary titles are often descriptive ("Sunset drinks at Holzmarkt 25",
+// "Walk to Brandenburg Gate", "Kutná Hora: Sedlec Ossuary"); the place is what
+// follows the last of these delimiters.
+const PLACE_DELIMITER = /\s(?:at|@|in|on|to|near|around)\s|:\s|\s[—–-]\s/i;
+
+/** The place-bearing tail of a descriptive stop title, or null when the title
+ * has no delimiter (or the tail is generic). */
+function placePhrase(title: string): string | null {
+	const parts = title.split(PLACE_DELIMITER);
+	if (parts.length < 2) return null;
+	const tail = parts[parts.length - 1].trim();
+	return tail.length >= 3 && !isGenericStop(tail) ? tail : null;
+}
+
+/** Relevance guard for itinerary stops: the page title must share a
+ * non-generic token with the stop's place text (the extracted phrase when
+ * there is one), so "Sunset" can't match "Sunset drinks at Holzmarkt 25". */
+function pageMatchesStop(pageTitle: string, placeText: string): boolean {
+	const wanted = new Set(
+		words(placeText).filter((w) => w.length >= 3 && !GENERIC_STOP_WORDS.has(w))
+	);
+	return words(pageTitle).some((w) => wanted.has(w));
+}
+
+/**
+ * Backfill missing `image` on itinerary stops: only coord-bearing activities
+ * (they become photo tiles on the trip map), skipping generic non-place stops.
+ * The search uses the day's country (from the itinerary's country headers,
+ * carried forward) as the location hint — never the day title, which is a
+ * theme ("Arrival & easy first night") that drags the search off target — and
+ * tries the extracted place phrase before the full title. Each hit must pass
+ * the relevance guard so a stop never gets an arbitrary Wikipedia photo. Legs
+ * and coord-less activities are untouched. Input/output are the raw
+ * itinerary-tab payload (`{ callout, days }`).
+ */
+export async function backfillItineraryImages(payload: unknown): Promise<unknown> {
+	const parsed = ItineraryTabSchema.safeParse(payload);
+	if (!parsed.success) return payload;
+	const tab = parsed.data;
+
+	type Activity = Extract<(typeof tab.days)[number]['items'][number], { kind: 'activity' }>;
+	const missing: { item: Activity; hint: string }[] = [];
+	let country = '';
+	for (const day of tab.days) {
+		if (day.countryHeader?.name) country = day.countryHeader.name;
+		for (const item of day.items) {
+			if (item.kind === 'activity' && item.coords && !item.image && !isGenericStop(item.title)) {
+				missing.push({ item, hint: country ? `, ${country}` : '' });
+			}
+		}
+	}
+	await pooledMap(missing, BACKFILL_CONCURRENCY, async ({ item, hint }) => {
+		const phrase = placePhrase(item.title);
+		const placeText = phrase ?? item.title;
+		const queries = phrase
+			? [`${phrase}${hint}`, `${item.title}${hint}`]
+			: [`${item.title}${hint}`];
+		for (const query of queries) {
+			const hit = await lookupWikimedia(query);
+			if (hit && pageMatchesStop(hit.pageTitle, placeText)) {
+				item.image = { ...hit.image, alt: item.title };
+				return;
+			}
+		}
+	});
+	return tab;
+}
+
+/** Backfill itinerary + viral + restaurant + accommodation images on a whole trip object (for `create_trip`). */
 export async function backfillTripImages(trip: unknown): Promise<unknown> {
 	const parsed = TripSchema.safeParse(trip);
 	if (!parsed.success) return trip;
 	const data = parsed.data;
 
+	data.itinerary = (await backfillItineraryImages(data.itinerary)) as typeof data.itinerary;
 	data.viral = (await backfillViralImages(data.viral)) as typeof data.viral;
 	if (data.restaurants) {
 		data.restaurants = (await backfillRestaurantImages(

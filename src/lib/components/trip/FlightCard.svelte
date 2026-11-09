@@ -6,7 +6,7 @@
 		'rounded-[6px] bg-(--ink) px-[11px] py-1.5 font-serif text-[1.3rem] tracking-[-0.5px] text-(--white)';
 </script>
 
-<div class="rounded-[10px] border border-(--trip-border) bg-(--white) p-[18px]">
+<div class="rounded-[10px] border border-(--trip-border) bg-(--card-fill) p-4 @xl:p-[18px]">
 	<h3 class="mb-3 text-[10px] font-bold tracking-[0.1em] text-(--ink3) uppercase">
 		{card.heading}
 	</h3>

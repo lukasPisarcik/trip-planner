@@ -17,6 +17,13 @@ export interface Coords {
 	lng: number;
 }
 
+/** A hotlinkable photo (Wikimedia) attached to a stop, spot, restaurant or stay. */
+export interface TripImage {
+	url: string;
+	alt: string;
+	credit?: string;
+}
+
 export interface ActivityItem {
 	kind: 'activity';
 	icon: string;
@@ -25,6 +32,8 @@ export interface ActivityItem {
 	tag?: string;
 	/** When set, the stop appears as a numbered, connected marker on the day map. */
 	coords?: Coords;
+	/** Photo tile shown on the stop's map marker — backfilled from Wikimedia. */
+	image?: TripImage;
 }
 
 export interface LegItem {
@@ -52,7 +61,6 @@ export interface Day {
 	title: string;
 	subtitle: string;
 	items: DayItem[];
-	defaultOpen?: boolean;
 	countryHeader?: CountryHeader;
 }
 
@@ -73,7 +81,6 @@ export interface TransportRoute {
 	price: string;
 	steps: RouteStep[];
 	chips: RouteChip[];
-	defaultOpen?: boolean;
 }
 
 export interface RouteGroup {
