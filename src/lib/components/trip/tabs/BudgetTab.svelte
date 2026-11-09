@@ -41,8 +41,14 @@
 		'border-b border-(--trip-border) bg-(--card-fill-soft) px-3.5 py-2 text-[10px] font-bold tracking-[0.08em] uppercase text-(--ink3)';
 	const rowCellClass =
 		'border-b border-(--trip-border) bg-(--card-fill) px-3.5 py-2.5 text-[12.5px]';
+	// Below @xl the details cell spans both columns and drops to its own line, so the
+	// row border moves from the category/cost cells down to the details cell.
+	const rowMainCellClass = `${rowCellClass} @max-xl:border-b-0 @max-xl:pb-0`;
+	const detailsCellClass = `${rowCellClass} col-span-2 text-(--ink2) @max-xl:pt-0 @xl:col-span-1`;
 	const totalCellClass =
 		'border-t-2 border-t-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-3.5 py-2.5 text-[12.5px] font-bold text-(--ink)';
+	const totalSubCellClass =
+		'col-span-2 border-t-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-3.5 py-2.5 text-[11px] text-(--ink2) @max-xl:pt-0 @xl:col-span-1 @xl:border-t-2 @xl:text-[12.5px] @xl:font-bold @xl:text-(--ink)';
 </script>
 
 <div class="mb-5 flex flex-wrap gap-2">
@@ -62,13 +68,15 @@
 
 {#if active}
 	<div
-		class="mb-6 flex flex-wrap items-center gap-6 rounded-[10px] bg-(--total-bg) px-6 py-5 text-(--white)"
+		class="mb-6 flex flex-wrap items-center gap-4 rounded-[10px] bg-(--total-bg) px-4 py-4 text-(--white) @xl:gap-6 @xl:px-6 @xl:py-5"
 	>
 		<div>
 			<div class="text-[11px] tracking-[0.08em] text-(--ink3) uppercase">
 				Estimated total · solo
 			</div>
-			<div class="font-serif text-[2.8rem] text-[var(--trip-accent-strong,var(--total-amount))]">
+			<div
+				class="font-serif text-[2rem] text-[var(--trip-accent-strong,var(--total-amount))] @xl:text-[2.8rem]"
+			>
 				{active.total}
 			</div>
 		</div>
@@ -79,26 +87,26 @@
 	</div>
 
 	<div
-		class="mb-5 grid w-full grid-cols-[1fr_2fr_auto] overflow-hidden rounded-[10px] border border-(--trip-border)"
+		class="mb-5 grid w-full grid-flow-row-dense grid-cols-[1fr_auto] overflow-hidden rounded-[10px] border border-(--trip-border) @xl:grid-flow-row @xl:grid-cols-[1fr_2fr_auto]"
 	>
 		<div class="contents">
 			<div class={headCellClass}>Category</div>
-			<div class={headCellClass}>Details</div>
+			<div class="{headCellClass} hidden @xl:block">Details</div>
 			<div class={headCellClass}>Cost</div>
 		</div>
 		{#each active.rows as row, i (i)}
 			<div class="contents">
-				<div class="{rowCellClass} font-semibold text-(--ink)">{row.category}</div>
-				<div class="{rowCellClass} text-(--ink2)">{row.details}</div>
-				<div class="{rowCellClass} text-right font-bold text-[var(--trip-accent,var(--sage))]">
+				<div class="{rowMainCellClass} font-semibold text-(--ink)">{row.category}</div>
+				<div class={detailsCellClass}>{row.details}</div>
+				<div class="{rowMainCellClass} text-right font-bold text-[var(--trip-accent,var(--sage))]">
 					{row.amount}
 				</div>
 			</div>
 		{/each}
 		<div class="contents">
-			<div class={totalCellClass}>Total</div>
-			<div class={totalCellClass}>All-in estimate (solo)</div>
-			<div class="{totalCellClass} text-right text-[var(--trip-accent,var(--sage))]">
+			<div class="{totalCellClass} @max-xl:pb-0">Total</div>
+			<div class={totalSubCellClass}>All-in estimate (solo)</div>
+			<div class="{totalCellClass} text-right text-[var(--trip-accent,var(--sage))] @max-xl:pb-0">
 				{active.total}
 			</div>
 		</div>
@@ -110,7 +118,9 @@
 		</h4>
 		{#each bars as bar, i (i)}
 			<div class="mb-2 flex items-center gap-2.5">
-				<div class="w-[130px] shrink-0 text-[12px] text-(--ink2)">{bar.label}</div>
+				<div class="w-[96px] shrink-0 truncate text-[12px] text-(--ink2) @xl:w-[130px]">
+					{bar.label}
+				</div>
 				<div
 					class="h-[7px] flex-1 overflow-hidden rounded-sm border border-(--trip-border) bg-(--card-fill-soft)"
 				>
@@ -121,7 +131,7 @@
 					></div>
 				</div>
 				<div
-					class="w-[60px] shrink-0 text-right text-[12px] font-semibold text-[var(--trip-accent,var(--sage))]"
+					class="w-[56px] shrink-0 text-right text-[12px] font-semibold text-[var(--trip-accent,var(--sage))] @xl:w-[60px]"
 				>
 					{bar.amount}
 				</div>

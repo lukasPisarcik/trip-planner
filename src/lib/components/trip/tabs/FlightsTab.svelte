@@ -10,13 +10,13 @@
 	{data.sectionLabel}
 </div>
 
-<div class="mb-5 grid grid-cols-[1fr_1fr] gap-3 max-[580px]:grid-cols-[1fr]">
+<div class="mb-5 grid grid-cols-1 gap-3 @xl:grid-cols-2">
 	{#each data.primary as card, i (i)}
 		<FlightCard {card} />
 	{/each}
 </div>
 
-<div class="mb-5 grid grid-cols-[1fr_1fr] gap-3 max-[580px]:grid-cols-[1fr]">
+<div class="mb-5 grid grid-cols-1 gap-3 @xl:grid-cols-2">
 	{#each data.secondary as card, i (i)}
 		<FlightCard {card} />
 	{/each}

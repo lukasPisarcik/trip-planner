@@ -1,0 +1,5 @@
+---
+'trip-planner': patch
+---
+
+Fit every trip tab to the surface it renders in, and start the itinerary collapsed. The Viral Spots, Food & Drink, Stay, Flights, Tips and Budget tabs used viewport breakpoints sized for the old 860px page, so inside the 440px glass panel they squeezed two ~195px cards per row, clipped the budget total and crushed the budget table into one-word-per-line columns. The panel body and the no-map page column are now Tailwind `@container`s and the tabs switch on the `@xl` container variant: one column with shorter 2.5:1 photo banners and stacked budget rows in the panel and phone sheet, the unchanged two-column 16:9 layout on the 780px page. Separately, itinerary day cards and transport routes always open collapsed on load and reload: the `defaultOpen` flag was removed from the Zod schemas, types and seed trips, so AI-built trips can no longer expand arbitrary days with the map still showing every route.

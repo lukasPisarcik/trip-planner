@@ -61,7 +61,6 @@ export interface Day {
 	title: string;
 	subtitle: string;
 	items: DayItem[];
-	defaultOpen?: boolean;
 	countryHeader?: CountryHeader;
 }
 
@@ -82,7 +81,6 @@ export interface TransportRoute {
 	price: string;
 	steps: RouteStep[];
 	chips: RouteChip[];
-	defaultOpen?: boolean;
 }
 
 export interface RouteGroup {

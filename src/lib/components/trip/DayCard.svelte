@@ -36,8 +36,7 @@
 			item.kind === 'activity' ? { coords: item.coords, name: item.title } : { coords: item.coords }
 		);
 	}
-	// svelte-ignore state_referenced_locally
-	let open = $state(day.defaultOpen ?? false);
+	let open = $state(false);
 	let el = $state<HTMLDivElement | undefined>(undefined);
 
 	const key = $derived(dayKey(day));

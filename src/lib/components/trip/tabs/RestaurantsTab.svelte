@@ -56,7 +56,7 @@
 			<div class="mb-3 text-[10px] font-bold tracking-[0.12em] text-(--ink3) uppercase">
 				{categoryLabel[group.category]}
 			</div>
-			<div class="mb-[22px] grid grid-cols-[1fr_1fr] gap-2.5 max-[600px]:grid-cols-[1fr]">
+			<div class="mb-[22px] grid grid-cols-1 gap-2.5 @xl:grid-cols-2">
 				{#each group.places as place, i (i)}
 					<RestaurantCard {place} />
 				{/each}

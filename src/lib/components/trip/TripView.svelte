@@ -301,7 +301,7 @@
 				</div>
 			</div>
 			<div
-				class="min-h-0 flex-1 scroll-pt-2 overflow-y-auto overscroll-contain px-4 py-4 [--card-fill-sky:transparent] [--card-fill-soft:transparent] [--card-fill:transparent] [--trip-shadow:0_0_0_1px_var(--glass-stroke)]"
+				class="@container min-h-0 flex-1 scroll-pt-2 overflow-y-auto overscroll-contain px-4 py-4 [--card-fill-sky:transparent] [--card-fill-soft:transparent] [--card-fill:transparent] [--trip-shadow:0_0_0_1px_var(--glass-stroke)]"
 			>
 				{#if active === 'brainstorm'}
 					<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
@@ -339,7 +339,9 @@
 		<Hero {trip} />
 		<div class="relative z-1">
 			<TabBar {tabs} {active} onselect={(id) => (active = id)} />
-			<div class="mx-auto max-w-[860px] px-10 py-9 text-sm leading-relaxed max-sm:px-4 max-sm:py-6">
+			<div
+				class="@container mx-auto max-w-[860px] px-10 py-9 text-sm leading-relaxed max-sm:px-4 max-sm:py-6"
+			>
 				{#if active === 'brainstorm'}
 					<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
 				{:else if active === 'itinerary'}

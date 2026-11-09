@@ -67,7 +67,7 @@
 			{/if}
 		</div>
 
-		<div class="mb-[22px] grid grid-cols-[1fr_1fr] gap-2.5 max-[600px]:grid-cols-[1fr]">
+		<div class="mb-[22px] grid grid-cols-1 gap-2.5 @xl:grid-cols-2">
 			{#each city.places as place, i (i)}
 				{@const mapUrl = mapUrlFor(place, city.city)}
 				<div
@@ -76,7 +76,9 @@
 					]}"
 				>
 					{#if place.image}
-						<div class="relative -mx-4 -mt-4 mb-3 aspect-video overflow-hidden bg-(--cream)">
+						<div
+							class="relative -mx-4 -mt-4 mb-3 aspect-[2.5/1] overflow-hidden bg-(--cream) @xl:aspect-video"
+						>
 							<img
 								class="block h-full w-full object-cover"
 								src={place.image.url}

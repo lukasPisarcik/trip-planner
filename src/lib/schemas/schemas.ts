@@ -123,7 +123,6 @@ export const DaySchema = z.object({
 	title: z.string(),
 	subtitle: z.string(),
 	items: z.array(DayItemSchema),
-	defaultOpen: z.boolean().optional(),
 	countryHeader: CountryHeaderSchema.optional()
 });
 
@@ -141,8 +140,7 @@ export const TransportRouteSchema = z.object({
 	modeLabel: z.string(),
 	price: z.string(),
 	steps: z.array(RouteStepSchema),
-	chips: z.array(RouteChipSchema),
-	defaultOpen: z.boolean().optional()
+	chips: z.array(RouteChipSchema)
 });
 
 export const RouteGroupSchema = z.object({

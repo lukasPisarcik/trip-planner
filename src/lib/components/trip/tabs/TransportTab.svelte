@@ -10,7 +10,7 @@
 <Callout html={data.callout} />
 
 {#each data.groups as group, gi (gi)}
-	<div class="mb-7">
+	<div class="mb-5 @xl:mb-7">
 		<div
 			class="mb-2.5 inline-block rounded-[7px] bg-[var(--trip-accent,var(--sage))] px-[13px] py-[7px] text-[11px] font-bold tracking-[0.1em] text-white uppercase"
 		>

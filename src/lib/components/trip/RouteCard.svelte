@@ -2,8 +2,7 @@
 	import type { TransportRoute } from '$lib/trips';
 
 	let { route }: { route: TransportRoute } = $props();
-	// svelte-ignore state_referenced_locally
-	let open = $state(route.defaultOpen ?? false);
+	let open = $state(false);
 
 	const modeTone: Record<TransportRoute['mode'], string> = {
 		bus: 'border-(--sage-md) bg-(--sage-lt) text-(--sage)',
