@@ -71,7 +71,7 @@
 			{#each city.places as place, i (i)}
 				{@const mapUrl = mapUrlFor(place, city.city)}
 				<div
-					class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--white) p-4 {typeTone[
+					class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--card-fill) p-4 {typeTone[
 						place.type
 					]}"
 				>

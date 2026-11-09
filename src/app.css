@@ -64,6 +64,11 @@
 	/* trip raw palette */
 	--cream: #faf8f4;
 	--white: #ffffff;
+	/* Card surfaces. Solid by default; the map layout's glass panel flips them
+	   to transparent so cards read as outlines on the frosted sheet. */
+	--card-fill: var(--white);
+	--card-fill-soft: var(--cream);
+	--card-fill-sky: var(--sky-lt);
 	--ink: #1c1917;
 	--ink2: #57534e;
 	--ink3: #a8a29e;

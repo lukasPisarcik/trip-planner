@@ -552,7 +552,13 @@
 	</Sidebar.Group>
 {/snippet}
 
-<Sidebar.Root collapsible="icon">
+<!-- Frosted surface so the trip map (a fixed canvas under the whole viewport)
+     shows through. Targets the generated inner slot via an arbitrary variant —
+     no edit inside ui/, no CSS. The mobile sheet has no inner slot → stays opaque. -->
+<Sidebar.Root
+	collapsible="icon"
+	class="border-(--glass-stroke) [&_[data-slot=sidebar-inner]]:bg-(--glass-bg) [&_[data-slot=sidebar-inner]]:backdrop-blur-[var(--glass-blur)] [&_[data-slot=sidebar-inner]]:backdrop-saturate-160"
+>
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>

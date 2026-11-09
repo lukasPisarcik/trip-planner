@@ -31,6 +31,7 @@
 	import { gmapsSearchUrl } from '$lib/helpers/gmaps';
 	import { createRouteCache, type PathPoint, type RouteCache } from '$lib/helpers/routeCache';
 	import { wikiThumb } from '$lib/helpers/wikiThumb';
+	import { fitPadding as padFor, type MapInsets } from '$lib/helpers/mapInsets';
 	import type { MapLayers, SpotCategory, BoundsTuple, DayRoute, DayStop } from './tabs/mapLayers';
 	import { boundsOf, chunkStops, routeCacheKey } from './tabs/mapLayers';
 
@@ -39,11 +40,7 @@
 		days,
 		focusedKey = null,
 		onfocusday,
-		height,
-		interactive = false,
-		fullscreen = false,
-		hiddenTop = 0,
-		topOverlay = 0,
+		insets = { top: 0, right: 0, bottom: 0, left: 0 },
 		class: className = ''
 	}: {
 		/** The constant marker set — only its non-activity categories are drawn as
@@ -55,20 +52,13 @@
 		focusedKey?: string | null;
 		/** Map-initiated focus change (marker / route / empty-map click). */
 		onfocusday?: (key: string | null) => void;
-		/** Container height in px; changes only on resize/fullscreen. */
-		height: number;
-		/** Pan/zoom enabled (expanded or fullscreen) vs. a static backdrop (collapsed). */
-		interactive?: boolean;
-		/** Fullscreen stage — one-finger pan allowed ('greedy' vs 'cooperative'). */
-		fullscreen?: boolean;
 		/**
-		 * Px of the map's top edge scrolled out of view (the stage slides under the
-		 * app header until only a peek remains). Read at fit time so focus/reset
-		 * target the still-visible bottom slice of the canvas.
+		 * Px of each canvas edge covered by UI chrome (header, title card, sidebar,
+		 * content panel / bottom sheet, AI panel). Every fit pads past them so no
+		 * fitted marker lands under a card; a change refits the current view.
 		 */
-		hiddenTop?: number;
-		/** Px the glass hero overlays the map's top — fits pad past it so pins stay visible. */
-		topOverlay?: number;
+		insets?: MapInsets;
+		/** Positioning/size classes — the caller sizes the canvas (e.g. `fixed inset-0`). */
 		class?: string;
 	} = $props();
 
@@ -138,8 +128,8 @@
 		if (zoom >= 12) return TIER_MID;
 		return TIER_FAR;
 	}
-	// Svelte state so the variables ride the container's `style` binding below:
-	// an imperative style.setProperty would be wiped whenever `height` changes.
+	// Svelte state so the variables ride the container's `style` binding below
+	// (an imperative style.setProperty would be wiped on any style re-render).
 	let tier = $state.raw<ZoomTier>(TIER_NEAR);
 	const DIM_CLASS = 'opacity-25'; // = DIM, as a Tailwind utility for marker DOM
 
@@ -206,17 +196,18 @@
 	}
 
 	/**
-	 * Fit paddings that respect the overlays: the glass hero covers the top
-	 * (`topOverlay`) and, when the page is scrolled, the visible window is the
-	 * BOTTOM slice of the canvas, so the top padding also grows by `hiddenTop`.
+	 * Fit padding that respects every overlay described by `insets`, plus a base
+	 * margin, clamped so a ≥120px band always remains for the bounds themselves
+	 * (see $lib/helpers/mapInsets). Read untracked: fits run from $effects that
+	 * must not re-run on every inset change (that has its own effect below).
 	 */
 	function fitPadding(base: number): google.maps.Padding {
-		const inset = hiddenTop > 0 ? 12 : base;
-		// Clamp: hiddenTop + hero can exceed the canvas on short/scrolled
-		// viewports, and padding beyond the canvas makes fitBounds degenerate —
-		// always leave at least a 120px band for the bounds themselves.
-		const top = Math.min(hiddenTop + inset + topOverlay, Math.max(0, height - inset - 120));
-		return { top, bottom: inset, left: base, right: base };
+		const canvas = { width: mapEl?.clientWidth ?? 0, height: mapEl?.clientHeight ?? 0 };
+		return padFor(
+			untrack(() => insets),
+			base,
+			canvas
+		);
 	}
 
 	/** fitBounds has no maxZoom option — clamp once the camera settles. Only one
@@ -247,10 +238,10 @@
 		clampZoom(16);
 	}
 
-	/** One-finger scroll must never pan the inline map; fullscreen may grab it. */
-	function gestureFor(): string {
-		if (!interactive) return 'none';
-		return fullscreen ? 'greedy' : 'cooperative';
+	/** Step the zoom by `delta` levels — for the caller's own ± controls (Google's
+	 * zoom control is off: every canvas corner sits under a glass card). */
+	export function zoomBy(delta: number) {
+		if (map) map.setZoom((map.getZoom() ?? 2) + delta);
 	}
 
 	/** Info-window content: name + an "Open in Google Maps" hand-off link.
@@ -642,9 +633,9 @@
 					: google.maps.ColorScheme.LIGHT,
 			backgroundColor: cssVar('--cream', '#faf7f2'),
 			disableDefaultUI: true,
-			zoomControl: interactive,
-			zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
-			gestureHandling: gestureFor(),
+			zoomControl: false,
+			// Nothing else on the page scrolls, so wheel-zoom and one-finger pan are safe.
+			gestureHandling: 'greedy',
 			clickableIcons: false,
 			center: view?.center ?? { lat: 20, lng: 0 },
 			zoom: view?.zoom ?? 2
@@ -763,26 +754,42 @@
 		createMap(center && zoom != null ? { center, zoom } : undefined);
 	});
 
-	// Static backdrop when collapsed; cooperative inline / greedy fullscreen.
+	// Overlays moved (panel hidden/shown, sidebar collapsed, AI panel, title
+	// measured, breakpoint crossed) → refit the current view to the uncovered
+	// area. Compares the four numbers so an identical object is a no-op, and
+	// skips the first run (createMap already fitted).
+	let appliedInsets: MapInsets | null = null;
 	$effect(() => {
-		const gestureHandling = gestureFor();
-		const zoomControl = interactive;
-		if (ready) map?.setOptions({ gestureHandling, zoomControl });
+		const next = insets;
+		if (!ready) return;
+		const prev = appliedInsets;
+		appliedInsets = next;
+		if (!prev) return;
+		if (
+			prev.top === next.top &&
+			prev.right === next.right &&
+			prev.bottom === next.bottom &&
+			prev.left === next.left
+		)
+			return;
+		// Untracked: the fit reads days/layers, which must not re-trigger this effect.
+		untrack(() => applyFocus(focusedKey, true));
 	});
 </script>
 
-<!-- relative + isolate contain the map DOM in its own stacking context, so it
-     doesn't paint over the glass hero / controls. Non-interactive backdrop gets
-     pointer-events:none so page scroll passes through. -->
+<!-- isolate contains the map DOM in its own stacking context, so it never
+     paints over the glass cards layered on top. The caller positions and sizes
+     the wrapper through `class` (the stage uses `fixed inset-0 z-0`); the Maps
+     API mounts into the inner div because it writes `position: relative` inline
+     on its container, which would override the wrapper's positioning class. -->
 <div
-	class="trip-map relative isolate w-full overflow-hidden bg-(--cream) {className}"
-	class:pointer-events-auto={interactive}
-	class:pointer-events-none={!interactive}
-	style="height: {height}px; --tile: {tier.tile}px; --tile-font: {tier.tileFont}px; --badge: {tier.badge}px; --badge-font: {tier.badgeFont}px"
-	bind:this={mapEl}
+	class="trip-map isolate overflow-hidden bg-(--cream) {className}"
+	style="--tile: {tier.tile}px; --tile-font: {tier.tileFont}px; --badge: {tier.badge}px; --badge-font: {tier.badgeFont}px"
 	role="region"
 	aria-label="Map of the trip's spots"
-></div>
+>
+	<div class="size-full" bind:this={mapEl}></div>
+</div>
 <!-- Colour probe: design tokens are painted onto it and read back as rgb() for
      the Maps API (see resolveColor). Never visible. -->
 <span bind:this={probeEl} hidden aria-hidden="true"></span>

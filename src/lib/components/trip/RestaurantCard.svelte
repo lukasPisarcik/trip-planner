@@ -47,7 +47,7 @@
 </script>
 
 <div
-	class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--white) p-4 {categoryTone[
+	class="relative overflow-hidden rounded-[10px] border border-t-[3px] border-(--trip-border) bg-(--card-fill) p-4 {categoryTone[
 		place.category
 	]}"
 >

@@ -158,7 +158,7 @@
 
 			<!-- Reserve space for the AI panel only on wide screens (≥1024px); below
 			     that it overlays as a drawer (see AiPanel) instead of squishing content. -->
-			<div class="min-w-0 flex-1 lg:data-[ai-open=true]:pr-[380px]" data-ai-open={aiPanelActive}>
+			<div class="min-w-0 flex-1 lg:data-[ai-open=true]:pr-[392px]" data-ai-open={aiPanelActive}>
 				{@render children?.()}
 			</div>
 

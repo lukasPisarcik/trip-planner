@@ -38,8 +38,9 @@
 	});
 
 	const headCellClass =
-		'border-b border-(--trip-border) bg-(--cream) px-3.5 py-2 text-[10px] font-bold tracking-[0.08em] uppercase text-(--ink3)';
-	const rowCellClass = 'border-b border-(--trip-border) bg-(--white) px-3.5 py-2.5 text-[12.5px]';
+		'border-b border-(--trip-border) bg-(--card-fill-soft) px-3.5 py-2 text-[10px] font-bold tracking-[0.08em] uppercase text-(--ink3)';
+	const rowCellClass =
+		'border-b border-(--trip-border) bg-(--card-fill) px-3.5 py-2.5 text-[12.5px]';
 	const totalCellClass =
 		'border-t-2 border-t-[var(--trip-accent-md,var(--sage-md))] bg-[var(--trip-accent-lt,var(--sage-lt))] px-3.5 py-2.5 text-[12.5px] font-bold text-(--ink)';
 </script>
@@ -51,7 +52,7 @@
 			class="cursor-pointer rounded-[20px] border px-4 py-1.5 text-[12.5px] [transition:all_0.15s] {v.id ===
 			activeId
 				? 'border-[var(--trip-accent,var(--sage))] bg-[var(--trip-accent,var(--sage))] text-white'
-				: 'border-(--trip-border) bg-(--white) text-(--ink2)'}"
+				: 'border-(--trip-border) bg-(--card-fill) text-(--ink2)'}"
 			onclick={() => (activeId = v.id)}
 		>
 			{v.label}
@@ -111,7 +112,7 @@
 			<div class="mb-2 flex items-center gap-2.5">
 				<div class="w-[130px] shrink-0 text-[12px] text-(--ink2)">{bar.label}</div>
 				<div
-					class="h-[7px] flex-1 overflow-hidden rounded-sm border border-(--trip-border) bg-(--cream)"
+					class="h-[7px] flex-1 overflow-hidden rounded-sm border border-(--trip-border) bg-(--card-fill-soft)"
 				>
 					<div
 						class="h-full rounded-sm [transition:width_0.5s_ease]"

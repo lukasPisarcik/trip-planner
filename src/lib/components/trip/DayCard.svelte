@@ -71,9 +71,10 @@
 		if (focused) open = true;
 	});
 
-	// Map / legend focus: bring the card into view, landing just below the
-	// sticky tab bar (scroll-mt on the wrapper), then release the one-shot
-	// request so a tab switch that remounts this card doesn't scroll again.
+	// Map focus: bring the card into view inside the nearest scroll container
+	// (the content panel's body, or the page in the no-map layout), landing at
+	// the wrapper's scroll-mt, then release the one-shot request so a tab switch
+	// that remounts this card doesn't scroll again.
 	$effect(() => {
 		if (!scrollRequested) return;
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -86,9 +87,12 @@
 		'mt-px inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-(--day) text-[11px] leading-none font-bold text-white';
 </script>
 
+<!-- The 3px left stripe in the day's route colour makes the card the map's
+     legend, open or closed. `--card-scroll-mt` is set by the map layout (8px
+     inside the panel); the default clears the no-map layout's sticky tab bar. -->
 <div
 	bind:this={el}
-	class="mb-2.5 scroll-mt-[calc(var(--tab-bar-top,3.5rem)+56px)] overflow-hidden rounded-[10px] border bg-(--white) transition-shadow duration-150 ease-[ease] hover:shadow-(--trip-shadow) {focused
+	class="mb-2.5 scroll-mt-[var(--card-scroll-mt,calc(3.5rem+56px))] overflow-hidden rounded-[10px] border border-l-[3px] border-l-(--day) bg-(--card-fill) transition-shadow duration-150 ease-[ease] hover:shadow-(--trip-shadow) {focused
 		? 'border-(--day)'
 		: 'border-(--trip-border)'}"
 	style="--day: {dayColor}"
@@ -96,7 +100,7 @@
 >
 	<button
 		type="button"
-		class="flex w-full cursor-pointer items-center gap-3.5 px-[18px] py-3.5 text-left select-none"
+		class="flex w-full cursor-pointer items-center gap-3.5 px-3.5 py-3 text-left select-none"
 		onclick={toggle}
 		aria-expanded={open}
 	>
@@ -126,7 +130,7 @@
 			{#each day.items as item, i (i)}
 				{#if item.kind === 'leg'}
 					<div
-						class="my-1.5 flex items-start gap-2.5 rounded-[8px] border border-(--sky-md) bg-(--sky-lt) px-3 py-[9px]"
+						class="my-1.5 flex items-start gap-2.5 rounded-[8px] border border-(--sky-md) bg-(--card-fill-sky) px-3 py-[9px]"
 					>
 						{#if numbers[i] != null}
 							<div class={stopNumClass}>{numbers[i]}</div>
@@ -158,7 +162,7 @@
 					</div>
 				{:else}
 					<div
-						class="mb-[7px] flex gap-2.5 rounded-[8px] border border-(--trip-border) bg-(--cream) px-3 py-[9px]"
+						class="mb-[7px] flex gap-2.5 rounded-[8px] border border-(--trip-border) bg-(--card-fill-soft) px-3 py-[9px]"
 					>
 						{#if numbers[i] != null}
 							<div class={stopNumClass}>{numbers[i]}</div>

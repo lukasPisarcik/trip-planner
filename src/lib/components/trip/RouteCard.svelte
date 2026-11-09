@@ -19,7 +19,7 @@
 	};
 </script>
 
-<div class="mb-2 overflow-hidden rounded-[10px] border border-(--trip-border) bg-(--white)">
+<div class="mb-2 overflow-hidden rounded-[10px] border border-(--trip-border) bg-(--card-fill)">
 	<button
 		type="button"
 		class="flex w-full cursor-pointer items-center gap-2.5 px-4 py-3 text-left select-none"
