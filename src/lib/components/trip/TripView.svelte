@@ -86,6 +86,25 @@
 		if (scrollRequest === key) scrollRequest = null;
 	}
 
+	// The two tab-content scroll areas: the panel body scrolls itself, the no-map
+	// page scrolls the document.
+	let panelBody = $state<HTMLDivElement>();
+	let pageBody = $state<HTMLDivElement>();
+	/** User-initiated tab switch: every tab starts at the top of its scroll area.
+	 *  Map-initiated switches (focusFromMap) bypass this so the day-card scroll
+	 *  request wins. Runs before the DOM swaps, so the new tab mounts at 0. */
+	function selectTab(id: string) {
+		active = id;
+		if (panelBody) panelBody.scrollTop = 0;
+		if (pageBody) {
+			// Land the content column just under the sticky tab bar; never scroll
+			// down past the hero when it is already in view.
+			const barBottom = pageBody.previousElementSibling?.getBoundingClientRect().bottom ?? 0;
+			const top = pageBody.getBoundingClientRect().top;
+			if (top < barBottom) window.scrollBy({ top: top - barBottom });
+		}
+	}
+
 	// ── Stage geometry ──────────────────────────────────────────────────────────
 	// The map is a fixed, viewport-sized canvas under everything; the sidebar,
 	// title card and content panel float over it as glass. Nothing on the page
@@ -297,11 +316,12 @@
 					<ChevronRight class="size-4 max-md:rotate-90" />
 				</button>
 				<div class="min-w-0 flex-1">
-					<TabBar {tabs} {active} onselect={(id) => (active = id)} compact />
+					<TabBar {tabs} {active} onselect={selectTab} compact />
 				</div>
 			</div>
 			<div
 				class="@container min-h-0 flex-1 scroll-pt-2 overflow-y-auto overscroll-contain px-4 py-4 [--card-fill-sky:transparent] [--card-fill-soft:transparent] [--card-fill:transparent] [--trip-shadow:0_0_0_1px_var(--glass-stroke)]"
+				bind:this={panelBody}
 			>
 				{#if active === 'brainstorm'}
 					<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
@@ -338,9 +358,10 @@
 	<div class="relative" style={styleVars}>
 		<Hero {trip} />
 		<div class="relative z-1">
-			<TabBar {tabs} {active} onselect={(id) => (active = id)} />
+			<TabBar {tabs} {active} onselect={selectTab} />
 			<div
 				class="@container mx-auto max-w-[860px] px-10 py-9 text-sm leading-relaxed max-sm:px-4 max-sm:py-6"
+				bind:this={pageBody}
 			>
 				{#if active === 'brainstorm'}
 					<BrainstormTab slug={trip.slug} content={trip.brainstorm} />
