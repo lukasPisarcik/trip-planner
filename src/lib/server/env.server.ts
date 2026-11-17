@@ -2,6 +2,7 @@
 // under plain `bun run` scripts/tests — the barrel pulls in browser-only UI deps.
 import { formatZodErrors } from '$lib/helpers/formatZodErrors';
 import { log } from '$lib/helpers/logger';
+import { parseAllowedOrigins } from './utils/bridge';
 import { z } from 'zod';
 
 /**
@@ -81,7 +82,22 @@ const PrivateEnvSchema = z.object({
 	// every page and API/remote request behind a signed session cookie (see
 	// src/lib/server/utils/crypto.ts). Unset → the gate is off and the app behaves
 	// exactly as before (local dev, existing deployments unaffected).
-	SITE_PASSWORD: z.string().min(1).optional()
+	SITE_PASSWORD: z.string().min(1).optional(),
+	// Expo bridge (temporary — removed in milestone 3 of the Expo port). The new
+	// Expo app calls /api/ai/chat and /api/bridge/* over plain HTTP from another
+	// origin, authenticating with `Authorization: Bearer <BRIDGE_SECRET>`. All
+	// three are optional; with BRIDGE_SECRET unset the bridge is disabled — every
+	// bearer is rejected and /api/bridge/* always answers 401.
+	BRIDGE_SECRET: z.string().min(1).optional(),
+	// Comma-separated CORS allow-list for the bridge routes (the Expo web dev
+	// origin and its static host), e.g. `http://localhost:8081,https://app.example`.
+	// Parsed to a normalized list; unset → no cross-origin browser may call it.
+	BRIDGE_ALLOWED_ORIGINS: z.string().optional().transform(parseAllowedOrigins),
+	// The owner's Clerk subject. When set, it is sent as `userId` with every
+	// secret-gated Convex mutation so rows written here are owned in the new
+	// user-scoped schema. Leave UNSET until the Expo repo's Convex functions (which
+	// accept that argument) are deployed — the legacy functions reject unknown args.
+	BRIDGE_OWNER_USER_ID: z.string().min(1).optional()
 });
 
 type PrivateEnv = z.infer<typeof PrivateEnvSchema>;

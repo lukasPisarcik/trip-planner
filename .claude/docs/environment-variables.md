@@ -56,6 +56,25 @@ legitimately live outside it because they belong to different runtimes:
 
 Everywhere else, the rule stands: declare in `env.server.ts`, read via `PrivateEnvValue`.
 
+## Expo bridge vars (temporary)
+
+Three optional server vars exist only while this app serves as the bridge for the Expo
+port (removed in that port's milestone 3). They follow the normal rule — declared in
+`env.server.ts`, read via `PrivateEnvValue`:
+
+- **`BRIDGE_SECRET`** — bearer the Expo app sends to `/api/ai/chat` and `/api/bridge/*`.
+  Unset → the bridge is disabled: every bearer is rejected and `/api/bridge/*` answers 401.
+- **`BRIDGE_ALLOWED_ORIGINS`** — comma-separated CORS allow-list for those routes. The
+  schema parses it, so `PrivateEnvValue('BRIDGE_ALLOWED_ORIGINS')` is a normalized
+  `string[]` (empty when unset).
+- **`BRIDGE_OWNER_USER_ID`** — the owner's Clerk user id. When set,
+  `src/lib/server/data/convex.ts` adds it as `userId` to every secret-gated Convex
+  mutation. Leave it unset until the Expo repo's Convex functions are deployed; the
+  legacy functions in the (frozen) `src/convex/` reject the extra argument.
+
+The pure bearer/CORS decision logic lives in `src/lib/server/utils/bridge.ts` (Bun test
+alongside); the hook and the routes pass it these values.
+
 ## Why this pattern
 
 - **Type-safe:** `PrivateEnvValue('UNKNOWN')` is a TypeScript error.

@@ -1,0 +1,5 @@
+---
+'trip-planner': patch
+---
+
+Add the Expo bridge: `/api/ai/chat` now also accepts `Authorization: Bearer <BRIDGE_SECRET>` (compared in constant time) as an alternative to the site-gate session cookie, two new bearer-only JSON endpoints — `POST /api/bridge/reels/save` and `POST /api/bridge/reels/retry` — wrap the existing reel save and retry-extraction services, and the server hook lets those routes past the site password gate on a valid bearer while answering CORS preflights only for origins listed in `BRIDGE_ALLOWED_ORIGINS`. The app is being ported to a separate Expo repository, and the co-pilot and reel extraction depend on local CLI logins and media tools that neither a static web build nor Convex can host, so this server stays on as their HTTP bridge until the port replaces it. `BRIDGE_OWNER_USER_ID`, when set, is attached as `userId` to every secret-gated Convex write so bridge-created rows are owned in the new user-scoped schema; all three variables are optional, the bridge is off without `BRIDGE_SECRET`, `VIEWER_MODE` still blocks writes, and `src/convex/` is now frozen because the Expo repository deploys the functions.

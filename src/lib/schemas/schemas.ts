@@ -529,6 +529,51 @@ export const RenameReelFolderInput = z.object({
 });
 export const ReelFolderIdInput = z.object({ id: z.string().min(1) });
 
+// ---- Expo bridge reel endpoints (temporary — removed in milestone 3) ----
+// Plain-HTTP twins of the saveReel / retryReelExtraction commands, called by the
+// Expo app with a bearer secret (POST /api/bridge/reels/save and .../retry).
+export const BridgeSaveReelRequestSchema = SaveReelInput;
+export type BridgeSaveReelRequest = z.infer<typeof BridgeSaveReelRequestSchema>;
+export const BridgeSaveReelResponseSchema = z.object({ id: z.string().min(1) });
+export type BridgeSaveReelResponse = z.infer<typeof BridgeSaveReelResponseSchema>;
+
+export const BridgeRetryReelRequestSchema = ReelIdInput;
+export type BridgeRetryReelRequest = z.infer<typeof BridgeRetryReelRequestSchema>;
+export const BridgeRetryReelResponseSchema = z.object({
+	id: z.string().min(1),
+	status: z.literal('processing')
+});
+export type BridgeRetryReelResponse = z.infer<typeof BridgeRetryReelResponseSchema>;
+
+// Error body every bridge JSON endpoint answers with on a non-2xx status.
+export const BridgeErrorCodeSchema = z.enum([
+	'UNAUTHORIZED',
+	'VALIDATION_ERROR',
+	'UNSUPPORTED_URL',
+	'READ_ONLY',
+	'NOT_FOUND',
+	'INTERNAL_ERROR'
+]);
+export type BridgeErrorCode = z.infer<typeof BridgeErrorCodeSchema>;
+export const BridgeErrorResponseSchema = z.object({
+	message: z.string(),
+	code: BridgeErrorCodeSchema.optional(),
+	// Field-level validation issues (400 VALIDATION_ERROR only).
+	errors: z
+		.array(
+			z.object({
+				path: z.string(),
+				message: z.string(),
+				expected: z.string().optional(),
+				received: z.string().optional()
+			})
+		)
+		.optional(),
+	// Correlates a 500 with the server log line.
+	errorId: z.string().optional()
+});
+export type BridgeErrorResponse = z.infer<typeof BridgeErrorResponseSchema>;
+
 // Composer attachment — sent by id; the chat route hydrates the stored text
 // server-side, so the client never asserts reel content.
 export const ReelAttachmentSchema = z.object({ reelId: z.string().min(1) });

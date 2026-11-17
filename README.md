@@ -80,20 +80,45 @@ starts with no trips — add your first with the ✨ AI co-pilot.
 
 ### Environment variables
 
-| Variable                     | Scope                            | Purpose                                                                            |
-| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| `PUBLIC_CONVEX_URL`          | browser                          | Convex URL for reactive reads. Written by `bunx convex dev`.                       |
-| `CONVEX_URL`                 | server                           | Same URL, for server-side reads (SSR + AI agent) and writes.                       |
-| `OWNER_WRITE_SECRET`         | server **and** Convex deployment | Gates all writes. Set the **same value** in `.env.local` and via `convex env set`. |
-| `ANTHROPIC_MODEL`            | server                           | Default Claude model for the co-pilot (optional; has a default).                   |
-| `OPENAI_MODEL`               | server                           | Default OpenAI/Codex model for the co-pilot (optional; has a default).             |
-| `MCP_BRIDGE_SECRET`          | server                           | Bearer for the in-app trip-tools MCP endpoint the Codex agent calls (optional).    |
-| `VIEWER_MODE`                | server                           | `true` on a public read-only deployment (see below).                               |
-| `SITE_PASSWORD`              | server                           | Optional shared password gating the whole site (see below). Unset = no gate.       |
-| `PUBLIC_GOOGLE_MAPS_API_KEY` | browser                          | Maps JavaScript API key for the trip map backdrop. Unset = solid hero, no map.     |
-| `PUBLIC_GOOGLE_MAPS_MAP_ID`  | browser                          | Vector Map ID for Advanced Markers (falls back to `DEMO_MAP_ID` locally).          |
+| Variable                     | Scope                            | Purpose                                                                                   |
+| ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `PUBLIC_CONVEX_URL`          | browser                          | Convex URL for reactive reads. Written by `bunx convex dev`.                              |
+| `CONVEX_URL`                 | server                           | Same URL, for server-side reads (SSR + AI agent) and writes.                              |
+| `OWNER_WRITE_SECRET`         | server **and** Convex deployment | Gates all writes. Set the **same value** in `.env.local` and via `convex env set`.        |
+| `ANTHROPIC_MODEL`            | server                           | Default Claude model for the co-pilot (optional; has a default).                          |
+| `OPENAI_MODEL`               | server                           | Default OpenAI/Codex model for the co-pilot (optional; has a default).                    |
+| `MCP_BRIDGE_SECRET`          | server                           | Bearer for the in-app trip-tools MCP endpoint the Codex agent calls (optional).           |
+| `BRIDGE_SECRET`              | server                           | Bearer the Expo app sends to `/api/ai/chat` and `/api/bridge/*`. Unset = bridge off.      |
+| `BRIDGE_ALLOWED_ORIGINS`     | server                           | Comma-separated CORS allow-list for those bridge routes (the Expo web origins).           |
+| `BRIDGE_OWNER_USER_ID`       | server                           | Owner's Clerk user id, sent as `userId` on Convex writes once the new functions are live. |
+| `VIEWER_MODE`                | server                           | `true` on a public read-only deployment (see below).                                      |
+| `SITE_PASSWORD`              | server                           | Optional shared password gating the whole site (see below). Unset = no gate.              |
+| `PUBLIC_GOOGLE_MAPS_API_KEY` | browser                          | Maps JavaScript API key for the trip map backdrop. Unset = solid hero, no map.            |
+| `PUBLIC_GOOGLE_MAPS_MAP_ID`  | browser                          | Vector Map ID for Advanced Markers (falls back to `DEMO_MAP_ID` locally).                 |
 
 Server vars are declared and validated in `src/lib/server/env.server.ts`; see `.env.example`.
+
+### Expo bridge and the frozen `src/convex/` folder
+
+This app is being ported to a new Expo repository (`trip-planner-expo`). Until that
+port's last milestone, this server stays on as a **bridge** for the two things only it
+can run — the co-pilot (local CLI logins) and reel extraction (local media tools):
+
+- `POST /api/ai/chat` also accepts `Authorization: Bearer <BRIDGE_SECRET>` as an
+  alternative to the site-gate session cookie (same SSE stream).
+- `POST /api/bridge/reels/save` and `POST /api/bridge/reels/retry` are bearer-only JSON
+  twins of the `saveReel` / `retryReelExtraction` commands.
+- CORS (and the `OPTIONS` preflight) is granted only to origins in
+  `BRIDGE_ALLOWED_ORIGINS`. With `BRIDGE_SECRET` unset the bridge is off.
+  `VIEWER_MODE=true` still blocks every write.
+
+**`src/convex/` is frozen.** From milestone 1 of the port on, the Expo repository owns
+and deploys this Convex deployment's functions (it re-exports the legacy secret-gated
+functions this server calls). Do not edit `src/convex/*` and do not run
+`bunx convex dev` / `bunx convex deploy` from this repo any more — that would overwrite
+the newer functions. Once those are deployed, set `BRIDGE_OWNER_USER_ID` here so rows
+this server writes carry the owner's user id; leave it unset before that, because the
+legacy functions reject the extra `userId` argument.
 
 ### Google Maps setup (the trip map backdrop)
 

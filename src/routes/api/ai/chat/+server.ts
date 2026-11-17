@@ -10,7 +10,8 @@ import {
 } from '$lib/schemas';
 import { formatTool } from '$lib/ai/formatTool';
 import * as chatsService from '$lib/server/services/chats.service';
-import { isViewerMode } from '$lib/server/env.server';
+import { isViewerMode, PrivateEnvValue } from '$lib/server/env.server';
+import { bearerStatus } from '$lib/server/utils/bridge';
 
 const encoder = new TextEncoder();
 
@@ -50,8 +51,21 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	// the agent — it spawns the Claude Code CLI, which can't run on serverless.
 	if (isViewerMode()) throw error(404, 'Not found');
 
+	// Two callers reach this route: the Svelte client (site-gate session cookie)
+	// and the Expo bridge client (`Authorization: Bearer <BRIDGE_SECRET>`, from
+	// another origin). The server hook authenticates both and adds the CORS headers
+	// for allowed origins; this re-check is defence in depth so a presented-but-wrong
+	// bearer can never run a turn even if the hook is reordered. Same SSE contract
+	// for both callers.
+	if (
+		bearerStatus(request.headers.get('authorization'), PrivateEnvValue('BRIDGE_SECRET')) ===
+		'invalid'
+	) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const reqId = crypto.randomUUID();
-	const raw = await request.json();
+	const raw: unknown = await request.json().catch(() => null);
 	const parsed = ChatRequestSchema.safeParse(raw);
 	if (!parsed.success) {
 		log.warn({ reqId, raw }, 'Chat request: invalid body');
